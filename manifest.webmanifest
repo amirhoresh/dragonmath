@@ -1,0 +1,14 @@
+{
+  "name": "DragonMath",
+  "short_name": "DragonMath",
+  "description": "A colorful, ADHD-friendly game to master the times tables.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff7ee",
+  "theme_color": "#7b4dff",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
