@@ -307,7 +307,7 @@ function renderBuildCount() {
       ${roundTopbar()}
       <div class="prompt-card">
         <p class="prompt-text"><span class="a">${p.a}</span> group${p.a === 1 ? '' : 's'} of <span class="b">${p.b}</span> = ?</p>
-        <div class="running" id="running">${p.finalWin ? 'One more — you got this! ⭐' : 'Tap each row to count…'}</div>
+        <div class="running" id="running">${p.finalWin ? 'One more — you got this! ⭐' : 'How many dots in total?'}</div>
       </div>
       <div class="dots" id="dots"></div>
       <div class="hint" id="hint"></div>
@@ -326,7 +326,6 @@ function renderBuildCount() {
     for (let c = 0; c < p.b; c++) row.appendChild(el('<span class="dot"></span>'));
     const tag = el('<span class="row-tag"></span>');
     row.appendChild(tag);
-    row.onclick = () => toggleRow(r);
     dots.appendChild(row);
   }
 
@@ -337,30 +336,6 @@ function renderBuildCount() {
     b.onclick = (e) => chooseAnswer(opt, b);
     answers.appendChild(b);
   });
-}
-
-function toggleRow(r) {
-  const p = problem;
-  if (p.locked) return;
-  if (p.counted.has(r)) p.counted.delete(r); else p.counted.add(r);
-  const rows = [...document.querySelectorAll('.dot-row')];
-  // running total = number of counted rows * b, shown in counting-up order
-  let count = 0;
-  rows.forEach((row, i) => {
-    const tag = row.querySelector('.row-tag');
-    if (p.counted.has(i)) {
-      row.classList.add('counted');
-      count += p.b;
-      tag.textContent = count;
-    } else {
-      row.classList.remove('counted');
-      tag.textContent = '';
-    }
-  });
-  const running = document.getElementById('running');
-  if (running && !p.finalWin) {
-    running.textContent = count > 0 ? `Counted: ${count}` : 'Tap each row to count…';
-  }
 }
 
 // shared scoring — used by both Build & Count and Bubble Pop
@@ -400,13 +375,13 @@ function chooseAnswer(opt, btn) {
     audio.wrong();
     btn.classList.add('wrong');
     setTimeout(() => btn.classList.remove('wrong'), 350);
-    if (p.tries >= 3) {
-      hint.textContent = `It's ${p.answer}. Count the dots: ${p.a} row${p.a === 1 ? '' : 's'} of ${p.b}.`;
+    if (p.tries >= 2) {
+      hint.textContent = `It's ${p.answer}. That's ${p.a} row${p.a === 1 ? '' : 's'} of ${p.b}.`;
       revealAllRows();
       commitWrongReveal(p);
       setTimeout(() => nextProblem(false), 1700);
     } else {
-      hint.textContent = p.tries === 1 ? 'Almost — try again!' : 'One more try — count the rows!';
+      hint.textContent = 'Almost — one more try!';
     }
   }
 }
@@ -479,7 +454,7 @@ function popBubble(b, val, pool) {
     b.classList.add('wrong');
     if (b.__anim) b.__anim.cancel();
     setTimeout(() => b.remove(), 220);
-    if (p.tries >= 3) {
+    if (p.tries >= 2) {
       stopBubbles(pool);
       [...pool.querySelectorAll('.bubble')].forEach((x) => {
         if (parseInt(x.textContent, 10) === p.answer) x.classList.add('correct');
