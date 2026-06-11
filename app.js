@@ -59,11 +59,11 @@ const audio = {
 // ---------- dragon growth ----------
 // 5 stages by lifetime stars. Each stage = bigger + new accessory.
 const STAGES = [
-  { name: 'בֵּיצי',     min: 0,   label: 'ביצה מתנדנדת' },
-  { name: 'נִיצוץ',     min: 30,  label: 'דרקון תינוק' },
-  { name: 'לֶהָבָה',    min: 90,  label: 'דרקון צעיר' },
-  { name: 'גַּחֶלֶת',   min: 200, label: 'דרקון חזק' },
-  { name: 'מֶלֶך הָאֵש', min: 400, label: 'דרקון אדיר!' },
+  { name: 'Eggbert',  min: 0,   label: 'a wobbly egg' },
+  { name: 'Sparky',   min: 30,  label: 'a baby dragon' },
+  { name: 'Blaze',    min: 90,  label: 'a young dragon' },
+  { name: 'Ember',    min: 200, label: 'a strong dragon' },
+  { name: 'Pyrus',    min: 400, label: 'a mighty dragon!' },
 ];
 function stageIndex(stars) {
   let i = 0;
@@ -251,8 +251,8 @@ function renderHome() {
   const home = el(`
     <div class="home">
       <div class="topbar">
-        <h1 class="title">דרקון<b> חשבון</b></h1>
-        <button class="mute" id="mute" aria-label="${state.muted ? 'הפעלת צליל' : 'השתקה'}">${state.muted ? '🔇' : '🔊'}</button>
+        <h1 class="title">Dragon<b>Math</b></h1>
+        <button class="mute" id="mute" aria-label="${state.muted ? 'Unmute' : 'Mute'}">${state.muted ? '🔇' : '🔊'}</button>
       </div>
       <div class="dragon-wrap">
         ${dragonSVG(si)}
@@ -262,11 +262,11 @@ function renderHome() {
       </div>
       <div class="stars-pill"><span class="star">★</span> ${state.stars}</div>
       <div class="mode-buttons">
-        <button class="btn btn--big btn--teal" id="play-count">🔢 לספור וללמוד</button>
-        <button class="btn btn--big btn--pink" id="play-pop">⚡ בועות מהירות</button>
-        <button class="btn btn--big btn--coral" id="play-shapes">🔷 צורות</button>
+        <button class="btn btn--big btn--teal" id="play-count">🔢 Count &amp; Learn</button>
+        <button class="btn btn--big btn--pink" id="play-pop">⚡ Bubble Pop</button>
+        <button class="btn btn--big btn--coral" id="play-shapes">🔷 Shapes</button>
       </div>
-      <p class="subtitle">כפל, בועות מהירות, וזיהוי צורות — והדרקון גדל!</p>
+      <p class="subtitle">Multiply, pop bubbles, and learn shapes — grow your dragon!</p>
     </div>
   `);
   app.appendChild(home);
@@ -277,7 +277,7 @@ function renderHome() {
     state.muted = !state.muted;
     save(state);
     e.target.textContent = state.muted ? '🔇' : '🔊';
-    e.target.setAttribute('aria-label', state.muted ? 'הפעלת צליל' : 'השתקה');
+    e.target.setAttribute('aria-label', state.muted ? 'Unmute' : 'Mute');
     if (!state.muted) { audio.ensure(); audio.pop(); }
   };
 }
@@ -290,7 +290,7 @@ function roundTopbar() {
     <div class="topbar">
       <div class="progress"><i style="width:${pct}%"></i></div>
       ${combo}
-      <div class="left-count">עוד ${left}</div>
+      <div class="left-count">${left} left</div>
     </div>`;
 }
 
@@ -309,6 +309,15 @@ function renderRound() {
   if (round.mode === 'shapes') return renderShapes();
   if (round.mode === 'pop') return renderBubblePop();
   return renderBuildCount();
+}
+
+// After a reveal, wait for a tap so she has time to read the answer.
+function showContinue() {
+  const view = document.querySelector('.round');
+  if (!view || view.querySelector('#continue')) return;
+  const b = el('<button class="btn btn--big continue" id="continue">המשך ▶</button>');
+  b.onclick = () => nextProblem(false);
+  view.appendChild(b);
 }
 
 function renderBuildCount() {
@@ -391,7 +400,7 @@ function chooseAnswer(opt, btn) {
       hint.textContent = `התשובה היא ${p.answer}. זה ${p.a === 1 ? 'שורה אחת' : `${p.a} שורות`} של ${p.b}.`;
       revealAllRows();
       commitWrongReveal(p);
-      setTimeout(() => nextProblem(false), 1700);
+      showContinue();
     } else {
       hint.textContent = 'כמעט! עוד ניסיון אחד';
     }
@@ -473,7 +482,7 @@ function popBubble(b, val, pool) {
       });
       hint.textContent = `התשובה היא ${p.answer}.  ${p.a} × ${p.b} = ${p.answer}`;
       commitWrongReveal(p);
-      setTimeout(() => nextProblem(false), 1500);
+      showContinue();
     } else {
       hint.textContent = 'לא זו — נסי שוב!';
     }
@@ -502,12 +511,14 @@ const SHAPES = {
   kite:          { he: 'דלתון',   pts: '50,10 80,42 50,90 20,42', rule: 'שני זוגות של צלעות צמודות שוות' },
 };
 const SHAPE_KEYS = Object.keys(SHAPES);
-const BUILD_KEYS = ['square', 'rectangle', 'parallelogram', 'trapezoid']; // grid-friendly
+const BUILD_KEYS = ['square', 'rectangle', 'parallelogram', 'trapezoid', 'rhombus', 'kite'];
 const BUILD_EXAMPLES = {
   square: [{x:1,y:1},{x:3,y:1},{x:3,y:3},{x:1,y:3}],
   rectangle: [{x:0,y:1},{x:4,y:1},{x:4,y:3},{x:0,y:3}],
   parallelogram: [{x:0,y:3},{x:3,y:3},{x:4,y:1},{x:1,y:1}],
   trapezoid: [{x:0,y:3},{x:4,y:3},{x:3,y:1},{x:1,y:1}],
+  rhombus: [{x:2,y:0},{x:3,y:2},{x:2,y:4},{x:1,y:2}],
+  kite: [{x:2,y:0},{x:4,y:2},{x:2,y:3},{x:0,y:2}],
 };
 
 function shuffleInPlace(arr) {
@@ -521,11 +532,19 @@ function shapeSVG(pts, size, fill) {
 
 function makeShapeProblem(finalWin) {
   const subtype = finalWin ? 'name' : ['name', 'name', 'rule', 'build'][Math.floor(rand() * 4)];
+  const avoid = round.lastShapeKey;
+  const pick = (keys) => {
+    let k, guard = 0;
+    do { k = keys[Math.floor(rand() * keys.length)]; } while (k === avoid && keys.length > 1 && guard++ < 12);
+    return k;
+  };
   if (subtype === 'build') {
-    const key = BUILD_KEYS[Math.floor(rand() * BUILD_KEYS.length)];
+    const key = pick(BUILD_KEYS);
+    round.lastShapeKey = key;
     return { kind: 'shapes', subtype, key, corners: [], N: 5, tries: 0, locked: false, finalWin };
   }
-  const key = SHAPE_KEYS[Math.floor(rand() * SHAPE_KEYS.length)];
+  const key = pick(SHAPE_KEYS);
+  round.lastShapeKey = key;
   const others = shuffleInPlace(SHAPE_KEYS.filter((k) => k !== key)).slice(0, 3);
   const optionKeys = shuffleInPlace([key, ...others]);
   return { kind: 'shapes', subtype, key, optionKeys, tries: 0, locked: false, finalWin };
@@ -603,7 +622,7 @@ function chooseShape(isCorrect, btn) {
       const right = document.querySelector('[data-correct="true"]');
       if (right) right.classList.add('correct');
       commitWrongReveal(p);
-      setTimeout(() => nextProblem(false), 1600);
+      showContinue();
     } else {
       hint.textContent = 'כמעט! נסי שוב';
     }
@@ -687,7 +706,7 @@ function checkBuild() {
       p.corners = BUILD_EXAMPLES[p.key].slice();
       drawGrid();
       commitWrongReveal(p);
-      setTimeout(() => nextProblem(false), 2300);
+      showContinue();
     } else {
       hint.textContent = (res.msg ? res.msg + ' — ' : '') + 'נסי שוב';
       p.corners = [];
@@ -728,6 +747,8 @@ function isShape(corners, key) {
     case 'rectangle': return { ok: allRight && oppEqual && !allEqual, msg: 'צריך 4 זוויות ישרות (ולא ריבוע)' };
     case 'parallelogram': return { ok: par02 && par13 && oppEqual && !allRight && !allEqual, msg: 'צריך 2 זוגות צלעות מקבילות (לא ישרות)' };
     case 'trapezoid': return { ok: (par02 !== par13), msg: 'צריך בדיוק זוג אחד של צלעות מקבילות' };
+    case 'rhombus': return { ok: allEqual && !allRight, msg: 'צריך 4 צלעות שוות (אבל לא ריבוע)' };
+    case 'kite': return { ok: ((L[0] === L[1] && L[2] === L[3]) || (L[1] === L[2] && L[3] === L[0])) && !allEqual, msg: 'צריך 2 זוגות של צלעות צמודות שוות' };
     default: return { ok: false };
   }
 }
@@ -739,15 +760,15 @@ function endRound() {
   app.innerHTML = '';
   const end = el(`
     <div class="end">
-      <h2>כל הכבוד! 🎉</h2>
+      <h2>Great job! 🎉</h2>
       <div class="dragon-wrap">
         ${dragonSVG(si)}
-        <div class="dragon-name">${STAGES[si].name} גדל!</div>
+        <div class="dragon-name">${STAGES[si].name} grew!</div>
       </div>
-      <div class="earned">צברת <span class="star">★</span> ${round.starsEarned} בסיבוב הזה</div>
-      <div class="stars-pill"><span class="star">★</span> ${state.stars} בסך הכול</div>
-      <button class="btn btn--big btn--teal" id="home">חזרה הביתה</button>
-      <p class="cooldown">בואי שוב אחר כך — הדרקון צריך לנוח 😴</p>
+      <div class="earned">You earned <span class="star">★</span> ${round.starsEarned} this round</div>
+      <div class="stars-pill"><span class="star">★</span> ${state.stars} total</div>
+      <button class="btn btn--big btn--teal" id="home">Back home</button>
+      <p class="cooldown">Come back later — your dragon needs a rest 😴</p>
     </div>
   `);
   app.appendChild(end);

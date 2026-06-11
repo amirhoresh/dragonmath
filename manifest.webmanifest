@@ -1,9 +1,7 @@
 {
-  "name": "דרקון חשבון",
-  "short_name": "דרקון חשבון",
-  "description": "משחק צבעוני וכיפי לתרגול לוח הכפל.",
-  "lang": "he",
-  "dir": "rtl",
+  "name": "DragonMath",
+  "short_name": "DragonMath",
+  "description": "A colorful, ADHD-friendly game to practice math.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

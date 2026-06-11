@@ -1,6 +1,20 @@
 /* DragonMath — playful, ADHD-friendly kids math game.
    Design: chunky rounded cards, hard drop-shadows, vibrant palette, big touch targets. */
 
+/* Varela Round — fun rounded font, self-hosted (Hebrew + Latin), works offline */
+@font-face {
+  font-family: 'Varela Round';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url(fonts/varelaround-hebrew.woff2) format('woff2');
+  unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+}
+@font-face {
+  font-family: 'Varela Round';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url(fonts/varelaround-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   --pink: #ff5db1;
   --purple: #7b4dff;
@@ -14,7 +28,7 @@
   --shadow-press: 0 2px 0 rgba(42, 33, 80, 0.18);
   --radius: 28px;
   --tap: 72px; /* min touch target for kids */
-  font-family: "Baloo 2", "Fredoka", "Segoe UI Rounded", "Comic Sans MS", system-ui, sans-serif;
+  font-family: 'Varela Round', "Segoe UI Rounded", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -157,7 +171,7 @@ html, body {
   touch-action: manipulation;
 }
 .gdot { cursor: pointer; }
-.title { font-size: 52px; font-weight: 800; margin: 0; color: var(--purple); letter-spacing: .5px; }
+.title { font-size: 44px; font-weight: 800; margin: 0; color: var(--purple); letter-spacing: .3px; }
 .title b { color: var(--pink); }
 .subtitle { font-size: 20px; opacity: .8; margin: 0; }
 
@@ -170,6 +184,8 @@ html, body {
   padding: 20px;
   text-align: center;
 }
+/* Hebrew question text reads right-to-left (chrome stays LTR/English) */
+.prompt-card, .running, .hint, .shape-opt span { direction: rtl; }
 .prompt-text { font-size: 30px; font-weight: 800; margin: 0 0 4px; }
 .prompt-text .a { color: var(--pink); }
 .prompt-text .b { color: var(--teal); }
@@ -212,6 +228,7 @@ html, body {
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
 
 .hint { text-align: center; font-size: 20px; font-weight: 700; min-height: 26px; color: var(--coral); }
+.continue { width: 100%; margin-top: 10px; background: var(--purple); }
 
 /* ---------- round end ---------- */
 .end { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; }
