@@ -192,12 +192,13 @@ function roundShouldEnd() {
 
 let problem = null;
 function nextProblem(trivial) {
-  if (round.mode === 'shapes') {
+  if (round.mode === 'shapes' || round.mode === 'triangles') {
+    const make = round.mode === 'shapes' ? makeShapeProblem : makeTriangleProblem;
     if (!trivial && roundShouldEnd() && !round.ending) {
-      round.ending = true; problem = makeShapeProblem(true); renderRound(); return;
+      round.ending = true; problem = make(true); renderRound(); return;
     }
     if (round.ending) { endRound(); return; }
-    problem = makeShapeProblem(false);
+    problem = make(false);
     renderRound();
     return;
   }
@@ -265,6 +266,7 @@ function renderHome() {
         <button class="btn btn--big btn--teal" id="play-count">🔢 Count &amp; Learn</button>
         <button class="btn btn--big btn--pink" id="play-pop">⚡ Bubble Pop</button>
         <button class="btn btn--big btn--coral" id="play-shapes">🔷 Shapes</button>
+        <button class="btn btn--big" id="play-triangles">📐 Triangles</button>
       </div>
       <p class="subtitle">Multiply, pop bubbles, and learn shapes — grow your dragon!</p>
     </div>
@@ -273,6 +275,7 @@ function renderHome() {
   home.querySelector('#play-count').onclick = () => startRound('count');
   home.querySelector('#play-pop').onclick = () => startRound('pop');
   home.querySelector('#play-shapes').onclick = () => startRound('shapes');
+  home.querySelector('#play-triangles').onclick = () => startRound('triangles');
   home.querySelector('#mute').onclick = (e) => {
     state.muted = !state.muted;
     save(state);
@@ -306,6 +309,7 @@ function fitDots(b) {
 }
 
 function renderRound() {
+  if (round.mode === 'triangles') return renderTriangles();
   if (round.mode === 'shapes') return renderShapes();
   if (round.mode === 'pop') return renderBubblePop();
   return renderBuildCount();
@@ -541,7 +545,7 @@ function makeShapeProblem(finalWin) {
   if (subtype === 'build') {
     const key = pick(BUILD_KEYS);
     round.lastShapeKey = key;
-    return { kind: 'shapes', subtype, key, corners: [], N: 5, tries: 0, locked: false, finalWin };
+    return { kind: 'shapes', subtype, key, corners: [], N: 5, need: 4, tries: 0, locked: false, finalWin };
   }
   const key = pick(SHAPE_KEYS);
   round.lastShapeKey = key;
@@ -602,7 +606,8 @@ function renderShapeByRule() {
   });
 }
 
-function chooseShape(isCorrect, btn) {
+// generic multiple-choice handler shared by shapes + triangles
+function chooseChoice(isCorrect, btn, revealText) {
   const p = problem;
   if (p.locked) return;
   const hint = document.getElementById('hint');
@@ -618,7 +623,7 @@ function chooseShape(isCorrect, btn) {
     btn.classList.add('wrong');
     setTimeout(() => btn.classList.remove('wrong'), 350);
     if (p.tries >= 2) {
-      hint.textContent = `זאת ${SHAPES[p.key].he}.`;
+      hint.textContent = revealText;
       const right = document.querySelector('[data-correct="true"]');
       if (right) right.classList.add('correct');
       commitWrongReveal(p);
@@ -627,6 +632,10 @@ function chooseShape(isCorrect, btn) {
       hint.textContent = 'כמעט! נסי שוב';
     }
   }
+}
+
+function chooseShape(isCorrect, btn) {
+  chooseChoice(isCorrect, btn, `זאת ${SHAPES[problem.key].he}.`);
 }
 
 // ---- build mode (tap 4 dots on a grid) ----
@@ -660,10 +669,11 @@ function renderShapeBuild() {
 function drawGrid() {
   const p = problem, N = p.N, S = 100, svg = document.getElementById('grid');
   if (!svg) return;
+  const need = p.need || 4;
   let shape = '';
-  if (p.corners.length >= 2 && p.corners.length < 4) {
+  if (p.corners.length >= 2 && p.corners.length < need) {
     shape = `<polyline points="${p.corners.map((c) => c.x * S + ',' + c.y * S).join(' ')}" fill="none" stroke="#7b4dff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>`;
-  } else if (p.corners.length === 4) {
+  } else if (p.corners.length === need) {
     const o = orderCyclic(p.corners);
     shape = `<polygon points="${o.map((c) => c.x * S + ',' + c.y * S).join(' ')}" fill="rgba(123,77,255,.18)" stroke="#7b4dff" stroke-width="7" stroke-linejoin="round"/>`;
   }
@@ -679,13 +689,14 @@ function drawGrid() {
 function tapDot(x, y) {
   const p = problem;
   if (p.locked) return;
+  const need = p.need || 4;
   const idx = p.corners.findIndex((c) => c.x === x && c.y === y);
   if (idx >= 0) { p.corners.splice(idx, 1); drawGrid(); return; }
-  if (p.corners.length >= 4) return;
+  if (p.corners.length >= need) return;
   audio.pop();
   p.corners.push({ x, y });
   drawGrid();
-  if (p.corners.length === 4) checkBuild();
+  if (p.corners.length === need) (p.kind === 'tri' ? checkTriBuild() : checkBuild());
 }
 
 function checkBuild() {
@@ -717,8 +728,9 @@ function checkBuild() {
 
 // geometry helpers
 function orderCyclic(pts) {
-  const cx = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
-  const cy = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
+  const n = pts.length;
+  const cx = pts.reduce((s, p) => s + p.x, 0) / n;
+  const cy = pts.reduce((s, p) => s + p.y, 0) / n;
   return pts.slice().sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
 }
 function polyArea(pts) {
@@ -749,6 +761,209 @@ function isShape(corners, key) {
     case 'trapezoid': return { ok: (par02 !== par13), msg: 'צריך בדיוק זוג אחד של צלעות מקבילות' };
     case 'rhombus': return { ok: allEqual && !allRight, msg: 'צריך 4 צלעות שוות (אבל לא ריבוע)' };
     case 'kite': return { ok: ((L[0] === L[1] && L[2] === L[3]) || (L[1] === L[2] && L[3] === L[0])) && !allEqual, msg: 'צריך 2 זוגות של צלעות צמודות שוות' };
+    default: return { ok: false };
+  }
+}
+
+// ====================== TRIANGLES GAME ======================
+const TRI_SIDES = {
+  equilateral: { he: 'שווה־צלעות',  pts: '50,14 86,80 14,80', rule: 'כל שלוש הצלעות שוות' },
+  isosceles:   { he: 'שווה־שוקיים', pts: '50,12 80,82 20,82', rule: 'שתי צלעות שוות' },
+  scalene:     { he: 'שונה־צלעות',  pts: '16,80 90,80 66,26', rule: 'כל הצלעות שונות זו מזו' },
+};
+const TRI_ANGLES = {
+  acute:  { he: 'חד־זווית',  pts: '50,16 82,80 18,80', rule: 'כל הזוויות קטנות מ-90°' },
+  right:  { he: 'ישר־זווית', pts: '20,18 20,80 78,80', rule: 'יש בו זווית של 90°' },
+  obtuse: { he: 'קהה־זווית', pts: '10,72 94,72 40,44', rule: 'יש בו זווית גדולה מ-90°' },
+};
+const TRI_BUILD = {
+  right:     { he: 'ישר־זווית',  ex: [{x:1,y:1},{x:1,y:4},{x:4,y:4}] },
+  isosceles: { he: 'שווה־שוקיים', ex: [{x:2,y:0},{x:0,y:4},{x:4,y:4}] },
+  scalene:   { he: 'שונה־צלעות',  ex: [{x:0,y:0},{x:4,y:1},{x:2,y:4}] },
+};
+const TRI_BUILD_KEYS = Object.keys(TRI_BUILD);
+const TRI_FILL = '#ff9a3d'; // coral (COLORS[4]) — inlined to avoid TDZ at load
+
+function makeTriangleProblem(finalWin) {
+  const subtype = finalWin ? 'sideName' : ['sideName', 'angleName', 'rule', 'anglefact', 'build'][Math.floor(rand() * 5)];
+  if (subtype === 'build') {
+    let key, guard = 0;
+    do { key = TRI_BUILD_KEYS[Math.floor(rand() * TRI_BUILD_KEYS.length)]; } while (key === round.lastShapeKey && guard++ < 8);
+    round.lastShapeKey = key;
+    return { kind: 'tri', subtype, target: key, corners: [], N: 5, need: 3, tries: 0, locked: false, finalWin };
+  }
+  if (subtype === 'anglefact') {
+    let a, b;
+    do { a = 20 + Math.floor(rand() * 9) * 10; b = 20 + Math.floor(rand() * 9) * 10; } while (a + b >= 170 || a + b < 40);
+    const answer = 180 - a - b;
+    const opts = new Set([answer]);
+    let guard = 0;
+    while (opts.size < 4 && guard++ < 60) { const c = answer + [10, -10, 20, -20, 30][Math.floor(rand() * 5)]; if (c > 0 && c < 160) opts.add(c); }
+    return { kind: 'tri', subtype, a1: a, a2: b, answer, options: shuffleInPlace([...opts]), tries: 0, locked: false, finalWin };
+  }
+  const set = subtype === 'angleName' ? TRI_ANGLES : (subtype === 'rule' ? (rand() < 0.5 ? TRI_SIDES : TRI_ANGLES) : TRI_SIDES);
+  const setName = set === TRI_ANGLES ? 'angles' : 'sides';
+  const keys = Object.keys(set);
+  const key = keys[Math.floor(rand() * keys.length)];
+  return { kind: 'tri', subtype, set, setName, key, tries: 0, locked: false, finalWin };
+}
+
+function renderTriangles() {
+  const p = problem;
+  if (p.subtype === 'build') return renderTriBuild();
+  if (p.subtype === 'anglefact') return renderTriAngleFact();
+  if (p.subtype === 'rule') return renderTriByRule();
+  return renderTriByName();
+}
+
+function renderTriByName() {
+  const p = problem;
+  const q = p.setName === 'angles' ? 'איזה משולש לפי הזוויות?' : 'איזה משולש לפי הצלעות?';
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card"><p class="prompt-text" style="font-size:24px">${p.finalWin ? 'עוד אחת! ⭐' : q}</p></div>
+      <div class="shape-stage">${shapeSVG(p.set[p.key].pts, 200, TRI_FILL)}</div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  shuffleInPlace(Object.keys(p.set)).forEach((k) => {
+    const b = el(`<button class="btn answer" data-correct="${k === p.key}" style="font-size:22px">${p.set[k].he}</button>`);
+    b.onclick = () => chooseChoice(k === p.key, b, `זה ${p.set[p.key].he}.`);
+    answers.appendChild(b);
+  });
+}
+
+function renderTriByRule() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text" style="font-size:22px">${p.finalWin ? 'עוד אחת! ⭐' : 'איזה משולש מתאים לכלל?'}</p>
+        <div class="running">${p.set[p.key].rule}</div>
+      </div>
+      <div class="shape-options" id="answers"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  shuffleInPlace(Object.keys(p.set)).forEach((k) => {
+    const b = el(`<button class="shape-opt" data-correct="${k === p.key}">${shapeSVG(p.set[k].pts, 110, TRI_FILL)}<span>${p.set[k].he}</span></button>`);
+    b.onclick = () => chooseChoice(k === p.key, b, `זה ${p.set[p.key].he}.`);
+    answers.appendChild(b);
+  });
+}
+
+function triAngleSVG(a1, a2) {
+  return `<svg width="230" height="170" viewBox="0 0 230 170" aria-hidden="true">
+    <polygon points="20,150 210,150 150,28" fill="${TRI_FILL}" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>
+    <text x="42" y="140" font-size="20" font-weight="800" fill="#2a2150">${a1}°</text>
+    <text x="172" y="143" font-size="20" font-weight="800" fill="#2a2150">${a2}°</text>
+    <text x="138" y="58" font-size="24" font-weight="800" fill="#ff5db1">?</text>
+  </svg>`;
+}
+
+function renderTriAngleFact() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text" style="font-size:22px">${p.finalWin ? 'עוד אחת! ⭐' : 'מה הזווית השלישית?'}</p>
+        <div class="running">הזוויות במשולש יחד = 180°</div>
+      </div>
+      <div class="shape-stage">${triAngleSVG(p.a1, p.a2)}</div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.options.forEach((opt) => {
+    const b = el(`<button class="btn answer" data-correct="${opt === p.answer}">${opt}°</button>`);
+    b.onclick = () => chooseChoice(opt === p.answer, b, `התשובה: ${p.answer}°  (180−${p.a1}−${p.a2})`);
+    answers.appendChild(b);
+  });
+}
+
+function renderTriBuild() {
+  const p = problem;
+  const span = (p.N - 1) * 100;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">בְּני משולש: <span class="a">${TRI_BUILD[p.target].he}</span></p>
+        <div class="running" id="running">הקישי על 3 נקודות כדי לבנות את המשולש</div>
+      </div>
+      <div class="grid-wrap"><svg id="grid" viewBox="-30 -30 ${span + 60} ${span + 60}"></svg></div>
+      <div class="hint" id="hint"></div>
+      <div class="answers"><button class="btn btn--ghost" id="clear">נקה</button></div>
+    </div>
+  `);
+  app.appendChild(view);
+  drawGrid();
+  view.querySelector('#clear').onclick = () => {
+    if (p.locked) return;
+    p.corners = [];
+    drawGrid();
+    const r = document.getElementById('running');
+    if (r) r.textContent = 'הקישי על 3 נקודות כדי לבנות את המשולש';
+  };
+}
+
+function checkTriBuild() {
+  const p = problem;
+  const hint = document.getElementById('hint');
+  const res = isTriangle(p.corners, p.target);
+  if (res.ok) {
+    p.locked = true;
+    commitCorrect(p, document.getElementById('grid'));
+    hint.textContent = `כל הכבוד! בנית משולש ${TRI_BUILD[p.target].he}! ⭐`;
+    setTimeout(() => nextProblem(false), 1300);
+  } else {
+    p.tries++;
+    audio.wrong();
+    if (p.tries >= 2) {
+      p.locked = true;
+      hint.textContent = `זה לא בדיוק ${TRI_BUILD[p.target].he}. ככה זה נראה:`;
+      p.corners = TRI_BUILD[p.target].ex.slice();
+      drawGrid();
+      commitWrongReveal(p);
+      showContinue();
+    } else {
+      hint.textContent = (res.msg ? res.msg + ' — ' : '') + 'נסי שוב';
+      p.corners = [];
+      drawGrid();
+    }
+  }
+}
+
+function triSides(pts) {
+  const d = (a, b) => { const dx = a.x - b.x, dy = a.y - b.y; return dx * dx + dy * dy; };
+  return [d(pts[0], pts[1]), d(pts[1], pts[2]), d(pts[2], pts[0])];
+}
+function isTriangle(corners, target) {
+  const [a, b, c] = corners;
+  const area = Math.abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y));
+  if (area === 0) return { ok: false, msg: 'הנקודות על קו אחד' };
+  const L = triSides(corners).slice().sort((x, y) => x - y);
+  const right = L[0] + L[1] === L[2];
+  const iso = L[0] === L[1] || L[1] === L[2] || L[0] === L[2];
+  const scalene = L[0] !== L[1] && L[1] !== L[2] && L[0] !== L[2];
+  switch (target) {
+    case 'right': return { ok: right, msg: 'צריך זווית של 90°' };
+    case 'isosceles': return { ok: iso, msg: 'צריך שתי צלעות שוות' };
+    case 'scalene': return { ok: scalene, msg: 'צריך שכל הצלעות יהיו שונות' };
     default: return { ok: false };
   }
 }

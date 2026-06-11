@@ -135,7 +135,8 @@ html, body {
 /* ---------- home ---------- */
 .home { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; text-align: center; }
 .home .topbar { width: 100%; align-items: center; }
-.mode-buttons { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+.mode-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.mode-buttons .btn { font-size: 22px; min-height: 86px; padding: 12px 10px; line-height: 1.15; }
 
 /* ---------- bubble pop ---------- */
 .pool { position: relative; flex: 1; min-height: 340px; overflow: hidden; }
