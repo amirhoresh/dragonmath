@@ -192,6 +192,15 @@ function roundShouldEnd() {
 
 let problem = null;
 function nextProblem(trivial) {
+  if (round.mode === 'shapes') {
+    if (!trivial && roundShouldEnd() && !round.ending) {
+      round.ending = true; problem = makeShapeProblem(true); renderRound(); return;
+    }
+    if (round.ending) { endRound(); return; }
+    problem = makeShapeProblem(false);
+    renderRound();
+    return;
+  }
   // if stop rule hit, throw in one guaranteed-easy "win" problem, then end.
   if (!trivial && roundShouldEnd() && !round.ending) {
     round.ending = true;
@@ -255,13 +264,15 @@ function renderHome() {
       <div class="mode-buttons">
         <button class="btn btn--big btn--teal" id="play-count">🔢 לספור וללמוד</button>
         <button class="btn btn--big btn--pink" id="play-pop">⚡ בועות מהירות</button>
+        <button class="btn btn--big btn--coral" id="play-shapes">🔷 צורות</button>
       </div>
-      <p class="subtitle">"לספור וללמוד" מסביר איך זה עובד. "בועות" זה משחק מהיר!</p>
+      <p class="subtitle">כפל, בועות מהירות, וזיהוי צורות — והדרקון גדל!</p>
     </div>
   `);
   app.appendChild(home);
   home.querySelector('#play-count').onclick = () => startRound('count');
   home.querySelector('#play-pop').onclick = () => startRound('pop');
+  home.querySelector('#play-shapes').onclick = () => startRound('shapes');
   home.querySelector('#mute').onclick = (e) => {
     state.muted = !state.muted;
     save(state);
@@ -295,6 +306,7 @@ function fitDots(b) {
 }
 
 function renderRound() {
+  if (round.mode === 'shapes') return renderShapes();
   if (round.mode === 'pop') return renderBubblePop();
   return renderBuildCount();
 }
@@ -341,7 +353,7 @@ function renderBuildCount() {
 // shared scoring — used by both Build & Count and Bubble Pop
 function commitCorrect(p, fromEl) {
   p.locked = true;
-  recordAttempt(p.a, p.b, p.tries === 0);
+  if (p.a && p.b) recordAttempt(p.a, p.b, p.tries === 0);
   round.correctCount++;
   round.wrongStreak = 0;
   round.combo = p.tries === 0 ? round.combo + 1 : 0;
@@ -353,7 +365,7 @@ function commitCorrect(p, fromEl) {
 }
 function commitWrongReveal(p) {
   p.locked = true;
-  recordAttempt(p.a, p.b, false);
+  if (p.a && p.b) recordAttempt(p.a, p.b, false);
   round.wrongStreak++;
   round.combo = 0;
   round.index++;
@@ -477,6 +489,247 @@ function revealAllRows() {
     count += p.b;
     row.querySelector('.row-tag').textContent = count;
   });
+}
+
+// ====================== SHAPES GAME ======================
+// Quadrilaterals: square, rectangle, rhombus, parallelogram, trapezoid, kite.
+const SHAPES = {
+  square:        { he: 'ריבוע',   pts: '25,25 75,25 75,75 25,75', rule: '4 צלעות שוות וכל הזוויות ישרות' },
+  rectangle:     { he: 'מלבן',    pts: '12,30 88,30 88,70 12,70', rule: '4 זוויות ישרות, והצלעות שמנגד שוות' },
+  rhombus:       { he: 'מעוין',   pts: '50,12 86,50 50,88 14,50', rule: '4 צלעות שוות, אבל הזוויות אינן ישרות' },
+  parallelogram: { he: 'מקבילית', pts: '30,30 92,30 70,70 8,70',  rule: 'שני זוגות של צלעות מקבילות ושוות' },
+  trapezoid:     { he: 'טרפז',    pts: '28,30 72,30 92,70 8,70',  rule: 'רק זוג אחד של צלעות מקבילות' },
+  kite:          { he: 'דלתון',   pts: '50,10 80,42 50,90 20,42', rule: 'שני זוגות של צלעות צמודות שוות' },
+};
+const SHAPE_KEYS = Object.keys(SHAPES);
+const BUILD_KEYS = ['square', 'rectangle', 'parallelogram', 'trapezoid']; // grid-friendly
+const BUILD_EXAMPLES = {
+  square: [{x:1,y:1},{x:3,y:1},{x:3,y:3},{x:1,y:3}],
+  rectangle: [{x:0,y:1},{x:4,y:1},{x:4,y:3},{x:0,y:3}],
+  parallelogram: [{x:0,y:3},{x:3,y:3},{x:4,y:1},{x:1,y:1}],
+  trapezoid: [{x:0,y:3},{x:4,y:3},{x:3,y:1},{x:1,y:1}],
+};
+
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+  return arr;
+}
+
+function shapeSVG(pts, size, fill) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-hidden="true"><polygon points="${pts}" fill="${fill}" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/></svg>`;
+}
+
+function makeShapeProblem(finalWin) {
+  const subtype = finalWin ? 'name' : ['name', 'name', 'rule', 'build'][Math.floor(rand() * 4)];
+  if (subtype === 'build') {
+    const key = BUILD_KEYS[Math.floor(rand() * BUILD_KEYS.length)];
+    return { kind: 'shapes', subtype, key, corners: [], N: 5, tries: 0, locked: false, finalWin };
+  }
+  const key = SHAPE_KEYS[Math.floor(rand() * SHAPE_KEYS.length)];
+  const others = shuffleInPlace(SHAPE_KEYS.filter((k) => k !== key)).slice(0, 3);
+  const optionKeys = shuffleInPlace([key, ...others]);
+  return { kind: 'shapes', subtype, key, optionKeys, tries: 0, locked: false, finalWin };
+}
+
+function renderShapes() {
+  if (problem.subtype === 'name') return renderShapeName();
+  if (problem.subtype === 'rule') return renderShapeByRule();
+  return renderShapeBuild();
+}
+
+function renderShapeName() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : 'איזו צורה זאת?'}</p>
+      </div>
+      <div class="shape-stage">${shapeSVG(SHAPES[p.key].pts, 200, COLORS[1])}</div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.optionKeys.forEach((k) => {
+    const b = el(`<button class="btn answer" data-correct="${k === p.key}">${SHAPES[k].he}</button>`);
+    b.onclick = () => chooseShape(k === p.key, b);
+    answers.appendChild(b);
+  });
+}
+
+function renderShapeByRule() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text" style="font-size:24px">${p.finalWin ? 'עוד אחת! ⭐' : 'איזו צורה מתאימה לכלל?'}</p>
+        <div class="running">${SHAPES[p.key].rule}</div>
+      </div>
+      <div class="shape-options" id="answers"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.optionKeys.forEach((k) => {
+    const b = el(`<button class="shape-opt" data-correct="${k === p.key}">${shapeSVG(SHAPES[k].pts, 110, COLORS[2])}<span>${SHAPES[k].he}</span></button>`);
+    b.onclick = () => chooseShape(k === p.key, b);
+    answers.appendChild(b);
+  });
+}
+
+function chooseShape(isCorrect, btn) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  if (isCorrect) {
+    const firstTry = p.tries === 0;
+    btn.classList.add('correct');
+    commitCorrect(p, btn);
+    hint.textContent = firstTry ? 'כל הכבוד! ⭐⭐⭐' : 'יפה! ⭐';
+    setTimeout(() => nextProblem(false), 900);
+  } else {
+    p.tries++;
+    audio.wrong();
+    btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 350);
+    if (p.tries >= 2) {
+      hint.textContent = `זאת ${SHAPES[p.key].he}.`;
+      const right = document.querySelector('[data-correct="true"]');
+      if (right) right.classList.add('correct');
+      commitWrongReveal(p);
+      setTimeout(() => nextProblem(false), 1600);
+    } else {
+      hint.textContent = 'כמעט! נסי שוב';
+    }
+  }
+}
+
+// ---- build mode (tap 4 dots on a grid) ----
+function renderShapeBuild() {
+  const p = problem;
+  const span = (p.N - 1) * 100;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">בְּני: <span class="a">${SHAPES[p.key].he}</span></p>
+        <div class="running" id="running">הקישי על 4 נקודות כדי לבנות את הצורה</div>
+      </div>
+      <div class="grid-wrap"><svg id="grid" viewBox="-30 -30 ${span + 60} ${span + 60}"></svg></div>
+      <div class="hint" id="hint"></div>
+      <div class="answers"><button class="btn btn--ghost" id="clear">נקה</button></div>
+    </div>
+  `);
+  app.appendChild(view);
+  drawGrid();
+  view.querySelector('#clear').onclick = () => {
+    if (p.locked) return;
+    p.corners = [];
+    drawGrid();
+    const r = document.getElementById('running');
+    if (r) r.textContent = 'הקישי על 4 נקודות כדי לבנות את הצורה';
+  };
+}
+
+function drawGrid() {
+  const p = problem, N = p.N, S = 100, svg = document.getElementById('grid');
+  if (!svg) return;
+  let shape = '';
+  if (p.corners.length >= 2 && p.corners.length < 4) {
+    shape = `<polyline points="${p.corners.map((c) => c.x * S + ',' + c.y * S).join(' ')}" fill="none" stroke="#7b4dff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>`;
+  } else if (p.corners.length === 4) {
+    const o = orderCyclic(p.corners);
+    shape = `<polygon points="${o.map((c) => c.x * S + ',' + c.y * S).join(' ')}" fill="rgba(123,77,255,.18)" stroke="#7b4dff" stroke-width="7" stroke-linejoin="round"/>`;
+  }
+  let dots = '';
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const placed = p.corners.some((c) => c.x === x && c.y === y);
+    dots += `<circle class="gdot" data-x="${x}" data-y="${y}" cx="${x * S}" cy="${y * S}" r="${placed ? 22 : 13}" fill="${placed ? '#ff5db1' : '#cbb8ff'}"/>`;
+  }
+  svg.innerHTML = shape + dots;
+  [...svg.querySelectorAll('.gdot')].forEach((d) => { d.onclick = () => tapDot(+d.dataset.x, +d.dataset.y); });
+}
+
+function tapDot(x, y) {
+  const p = problem;
+  if (p.locked) return;
+  const idx = p.corners.findIndex((c) => c.x === x && c.y === y);
+  if (idx >= 0) { p.corners.splice(idx, 1); drawGrid(); return; }
+  if (p.corners.length >= 4) return;
+  audio.pop();
+  p.corners.push({ x, y });
+  drawGrid();
+  if (p.corners.length === 4) checkBuild();
+}
+
+function checkBuild() {
+  const p = problem;
+  const hint = document.getElementById('hint');
+  const res = isShape(p.corners, p.key);
+  if (res.ok) {
+    p.locked = true;
+    commitCorrect(p, document.getElementById('grid'));
+    hint.textContent = `כל הכבוד! בנית ${SHAPES[p.key].he}! ⭐`;
+    setTimeout(() => nextProblem(false), 1200);
+  } else {
+    p.tries++;
+    audio.wrong();
+    if (p.tries >= 2) {
+      p.locked = true;
+      hint.textContent = `זה לא בדיוק ${SHAPES[p.key].he}. ככה זה נראה:`;
+      p.corners = BUILD_EXAMPLES[p.key].slice();
+      drawGrid();
+      commitWrongReveal(p);
+      setTimeout(() => nextProblem(false), 2300);
+    } else {
+      hint.textContent = (res.msg ? res.msg + ' — ' : '') + 'נסי שוב';
+      p.corners = [];
+      drawGrid();
+    }
+  }
+}
+
+// geometry helpers
+function orderCyclic(pts) {
+  const cx = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
+  const cy = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
+  return pts.slice().sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+}
+function polyArea(pts) {
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += a.x * b.y - b.x * a.y; }
+  return Math.abs(s / 2);
+}
+function isShape(corners, key) {
+  for (let i = 0; i < corners.length; i++) for (let j = i + 1; j < corners.length; j++)
+    if (corners[i].x === corners[j].x && corners[i].y === corners[j].y) return { ok: false, msg: 'יש נקודות כפולות' };
+  const pts = orderCyclic(corners);
+  if (polyArea(pts) < 0.5) return { ok: false, msg: 'הנקודות על קו אחד' };
+  const e = [];
+  for (let i = 0; i < 4; i++) e.push({ x: pts[(i + 1) % 4].x - pts[i].x, y: pts[(i + 1) % 4].y - pts[i].y });
+  const L = e.map((v) => v.x * v.x + v.y * v.y);
+  const dot = (a, b) => a.x * b.x + a.y * b.y;
+  const cross = (a, b) => a.x * b.y - a.y * b.x;
+  const perp = (i) => dot(e[(i + 3) % 4], e[i]) === 0;
+  const allRight = perp(0) && perp(1) && perp(2) && perp(3);
+  const par02 = cross(e[0], e[2]) === 0;
+  const par13 = cross(e[1], e[3]) === 0;
+  const oppEqual = L[0] === L[2] && L[1] === L[3];
+  const allEqual = L[0] === L[1] && L[1] === L[2] && L[2] === L[3];
+  switch (key) {
+    case 'square': return { ok: allEqual && allRight, msg: 'צריך 4 צלעות שוות וזוויות ישרות' };
+    case 'rectangle': return { ok: allRight && oppEqual && !allEqual, msg: 'צריך 4 זוויות ישרות (ולא ריבוע)' };
+    case 'parallelogram': return { ok: par02 && par13 && oppEqual && !allRight && !allEqual, msg: 'צריך 2 זוגות צלעות מקבילות (לא ישרות)' };
+    case 'trapezoid': return { ok: (par02 !== par13), msg: 'צריך בדיוק זוג אחד של צלעות מקבילות' };
+    default: return { ok: false };
+  }
 }
 
 function endRound() {
