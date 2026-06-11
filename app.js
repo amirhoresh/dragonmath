@@ -297,15 +297,22 @@ function roundTopbar() {
     </div>`;
 }
 
-// pick a dot size that fits the row within the screen width (no left-right scroll)
-function fitDots(b) {
-  const ROW_TAG = 44, ROW_PAD = 20, MAX_DOT = 30, MIN_DOT = 12;
-  const contentW = Math.min(app.clientWidth || 360, 560) - 36; // minus .app horizontal padding
-  const avail = Math.max(60, contentW - ROW_TAG - ROW_PAD);
+// size the dot array to fit BOTH the width and height of its stage box (never scroll)
+function sizeDots(stage, dots, a, b) {
+  if (!stage || !dots) return;
+  const W = stage.clientWidth, H = stage.clientHeight;
+  if (!W || !H) return;
+  const ROW_TAG = 38, ROW_PADX = 20, MAX_DOT = 30, MIN_DOT = 4;
   const gap = b > 6 ? 6 : 10;
-  let dot = Math.floor((avail - (b - 1) * gap) / b);
+  const rgap = a > 6 ? 5 : 8;  // row gap (tighter for tall grids)
+  const rowPadY = 4;           // .dot-row vertical padding total
+  const byW = (Math.min(W, 540) - ROW_TAG - ROW_PADX - (b - 1) * gap) / b;
+  const byH = (H - (a - 1) * rgap) / a - rowPadY;
+  let dot = Math.floor(Math.min(byW, byH));
   dot = Math.max(MIN_DOT, Math.min(MAX_DOT, dot));
-  return { dot, gap };
+  dots.style.setProperty('--dot', dot + 'px');
+  dots.style.setProperty('--gap', gap + 'px');
+  dots.style.setProperty('--rgap', rgap + 'px');
 }
 
 function renderRound() {
@@ -334,25 +341,24 @@ function renderBuildCount() {
         <p class="prompt-text">${p.a === 1 ? 'קבוצה אחת' : `<span class="a">${p.a}</span> קבוצות`} של <span class="b">${p.b}</span> = ?</p>
         <div class="running" id="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : 'כמה נקודות יש בסך הכול?'}</div>
       </div>
-      <div class="dots" id="dots"></div>
+      <div class="stage"><div class="dots" id="dots"></div></div>
       <div class="hint" id="hint"></div>
       <div class="answers" id="answers"></div>
     </div>
   `);
   app.appendChild(view);
 
-  // dots — size them to fit the screen width so a row never scrolls left/right
+  // dots
   const dots = view.querySelector('#dots');
-  const { dot, gap } = fitDots(p.b);
-  dots.style.setProperty('--dot', dot + 'px');
-  dots.style.setProperty('--gap', gap + 'px');
   for (let r = 0; r < p.a; r++) {
-    const row = el(`<div class="dot-row" data-row="${r}" style="grid-template-columns:repeat(${p.b},var(--dot))"></div>`);
+    const row = el(`<div class="dot-row" data-row="${r}" style="grid-template-columns:repeat(${p.b},var(--dot)) auto"></div>`);
     for (let c = 0; c < p.b; c++) row.appendChild(el('<span class="dot"></span>'));
     const tag = el('<span class="row-tag"></span>');
     row.appendChild(tag);
     dots.appendChild(row);
   }
+  // size dots to fit BOTH the width and height of the stage (never scroll)
+  requestAnimationFrame(() => sizeDots(view.querySelector('.stage'), dots, p.a, p.b));
 
   // answers
   const answers = view.querySelector('#answers');
@@ -1046,6 +1052,14 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
 }
+
+// keep the dot grid fitting on orientation / resize changes
+window.addEventListener('resize', () => {
+  if (round && round.mode === 'count' && problem && problem.a) {
+    const stage = document.querySelector('.round .stage');
+    sizeDots(stage, document.getElementById('dots'), problem.a, problem.b);
+  }
+});
 
 // ---------- go ----------
 renderHome();
