@@ -59,11 +59,11 @@ const audio = {
 // ---------- dragon growth ----------
 // 5 stages by lifetime stars. Each stage = bigger + new accessory.
 const STAGES = [
-  { name: 'Eggbert',  min: 0,   label: 'a wobbly egg' },
-  { name: 'Sparky',   min: 30,  label: 'a baby dragon' },
-  { name: 'Blaze',    min: 90,  label: 'a young dragon' },
-  { name: 'Ember',    min: 200, label: 'a strong dragon' },
-  { name: 'Pyrus',    min: 400, label: 'a mighty dragon!' },
+  { name: 'בֵּיצי',     min: 0,   label: 'ביצה מתנדנדת' },
+  { name: 'נִיצוץ',     min: 30,  label: 'דרקון תינוק' },
+  { name: 'לֶהָבָה',    min: 90,  label: 'דרקון צעיר' },
+  { name: 'גַּחֶלֶת',   min: 200, label: 'דרקון חזק' },
+  { name: 'מֶלֶך הָאֵש', min: 400, label: 'דרקון אדיר!' },
 ];
 function stageIndex(stars) {
   let i = 0;
@@ -242,8 +242,8 @@ function renderHome() {
   const home = el(`
     <div class="home">
       <div class="topbar">
-        <h1 class="title">Dragon<b>Math</b></h1>
-        <button class="mute" id="mute" aria-label="${state.muted ? 'Unmute sound' : 'Mute sound'}">${state.muted ? '🔇' : '🔊'}</button>
+        <h1 class="title">דרקון<b> חשבון</b></h1>
+        <button class="mute" id="mute" aria-label="${state.muted ? 'הפעלת צליל' : 'השתקה'}">${state.muted ? '🔇' : '🔊'}</button>
       </div>
       <div class="dragon-wrap">
         ${dragonSVG(si)}
@@ -253,10 +253,10 @@ function renderHome() {
       </div>
       <div class="stars-pill"><span class="star">★</span> ${state.stars}</div>
       <div class="mode-buttons">
-        <button class="btn btn--big btn--teal" id="play-count">🔢 Count &amp; Learn</button>
-        <button class="btn btn--big btn--pink" id="play-pop">⚡ Bubble Pop</button>
+        <button class="btn btn--big btn--teal" id="play-count">🔢 לספור וללמוד</button>
+        <button class="btn btn--big btn--pink" id="play-pop">⚡ בועות מהירות</button>
       </div>
-      <p class="subtitle">Count &amp; Learn teaches the why. Bubble Pop is a fast game!</p>
+      <p class="subtitle">"לספור וללמוד" מסביר איך זה עובד. "בועות" זה משחק מהיר!</p>
     </div>
   `);
   app.appendChild(home);
@@ -266,7 +266,7 @@ function renderHome() {
     state.muted = !state.muted;
     save(state);
     e.target.textContent = state.muted ? '🔇' : '🔊';
-    e.target.setAttribute('aria-label', state.muted ? 'Unmute sound' : 'Mute sound');
+    e.target.setAttribute('aria-label', state.muted ? 'הפעלת צליל' : 'השתקה');
     if (!state.muted) { audio.ensure(); audio.pop(); }
   };
 }
@@ -279,7 +279,7 @@ function roundTopbar() {
     <div class="topbar">
       <div class="progress"><i style="width:${pct}%"></i></div>
       ${combo}
-      <div class="left-count">${left} left</div>
+      <div class="left-count">עוד ${left}</div>
     </div>`;
 }
 
@@ -306,8 +306,8 @@ function renderBuildCount() {
     <div class="round">
       ${roundTopbar()}
       <div class="prompt-card">
-        <p class="prompt-text"><span class="a">${p.a}</span> group${p.a === 1 ? '' : 's'} of <span class="b">${p.b}</span> = ?</p>
-        <div class="running" id="running">${p.finalWin ? 'One more — you got this! ⭐' : 'How many dots in total?'}</div>
+        <p class="prompt-text">${p.a === 1 ? 'קבוצה אחת' : `<span class="a">${p.a}</span> קבוצות`} של <span class="b">${p.b}</span> = ?</p>
+        <div class="running" id="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : 'כמה נקודות יש בסך הכול?'}</div>
       </div>
       <div class="dots" id="dots"></div>
       <div class="hint" id="hint"></div>
@@ -368,7 +368,7 @@ function chooseAnswer(opt, btn) {
     btn.classList.add('correct');
     const firstTry = p.tries === 0;
     commitCorrect(p, btn);
-    hint.textContent = firstTry ? 'Yes! ⭐⭐⭐' : 'Got it! ⭐';
+    hint.textContent = firstTry ? 'כל הכבוד! ⭐⭐⭐' : 'יפה! ⭐';
     setTimeout(() => nextProblem(false), 850);
   } else {
     p.tries++;
@@ -376,12 +376,12 @@ function chooseAnswer(opt, btn) {
     btn.classList.add('wrong');
     setTimeout(() => btn.classList.remove('wrong'), 350);
     if (p.tries >= 2) {
-      hint.textContent = `It's ${p.answer}. That's ${p.a} row${p.a === 1 ? '' : 's'} of ${p.b}.`;
+      hint.textContent = `התשובה היא ${p.answer}. זה ${p.a === 1 ? 'שורה אחת' : `${p.a} שורות`} של ${p.b}.`;
       revealAllRows();
       commitWrongReveal(p);
       setTimeout(() => nextProblem(false), 1700);
     } else {
-      hint.textContent = 'Almost — one more try!';
+      hint.textContent = 'כמעט! עוד ניסיון אחד';
     }
   }
 }
@@ -395,7 +395,7 @@ function renderBubblePop() {
       ${roundTopbar()}
       <div class="prompt-card">
         <p class="prompt-text"><span class="a">${p.a}</span> × <span class="b">${p.b}</span> = ?</p>
-        <div class="running">${p.finalWin ? 'One more — you got this! ⭐' : 'Pop the right answer!'}</div>
+        <div class="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : 'פוצצי את התשובה הנכונה!'}</div>
       </div>
       <div class="pool" id="pool"></div>
       <div class="hint" id="hint"></div>
@@ -446,7 +446,7 @@ function popBubble(b, val, pool) {
     b.classList.add('correct');
     stopBubbles(pool);
     commitCorrect(p, b);
-    hint.textContent = firstTry ? `Pop! 🔥 ${p.a}×${p.b}=${p.answer}` : `Got it! ${p.answer}`;
+    hint.textContent = firstTry ? `בּוּם! 🔥 ${p.a}×${p.b}=${p.answer}` : `יפה! ${p.answer}`;
     setTimeout(() => nextProblem(false), 800);
   } else {
     p.tries++;
@@ -459,11 +459,11 @@ function popBubble(b, val, pool) {
       [...pool.querySelectorAll('.bubble')].forEach((x) => {
         if (parseInt(x.textContent, 10) === p.answer) x.classList.add('correct');
       });
-      hint.textContent = `It's ${p.answer}. ${p.a} × ${p.b} = ${p.answer}.`;
+      hint.textContent = `התשובה היא ${p.answer}.  ${p.a} × ${p.b} = ${p.answer}`;
       commitWrongReveal(p);
       setTimeout(() => nextProblem(false), 1500);
     } else {
-      hint.textContent = 'Not that one — try again!';
+      hint.textContent = 'לא זו — נסי שוב!';
     }
   }
 }
@@ -486,15 +486,15 @@ function endRound() {
   app.innerHTML = '';
   const end = el(`
     <div class="end">
-      <h2>Great job! 🎉</h2>
+      <h2>כל הכבוד! 🎉</h2>
       <div class="dragon-wrap">
         ${dragonSVG(si)}
-        <div class="dragon-name">${STAGES[si].name} grew!</div>
+        <div class="dragon-name">${STAGES[si].name} גדל!</div>
       </div>
-      <div class="earned">You earned <span class="star">★</span> ${round.starsEarned} this round</div>
-      <div class="stars-pill"><span class="star">★</span> ${state.stars} total</div>
-      <button class="btn btn--big btn--teal" id="home">Back home</button>
-      <p class="cooldown">Come back later for more — your dragon needs a rest 😴</p>
+      <div class="earned">צברת <span class="star">★</span> ${round.starsEarned} בסיבוב הזה</div>
+      <div class="stars-pill"><span class="star">★</span> ${state.stars} בסך הכול</div>
+      <button class="btn btn--big btn--teal" id="home">חזרה הביתה</button>
+      <p class="cooldown">בואי שוב אחר כך — הדרקון צריך לנוח 😴</p>
     </div>
   `);
   app.appendChild(end);
