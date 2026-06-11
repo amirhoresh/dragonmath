@@ -1,0 +1,7 @@
+# Brainstorm visual-companion scratch files
+.superpowers/
+
+# Node
+node_modules/
+dist/
+.DS_Store
