@@ -26,6 +26,7 @@ html, body {
   color: var(--ink);
   overscroll-behavior: none;
   touch-action: manipulation;
+  overflow-x: hidden; /* never scroll left-right */
 }
 
 .app {
@@ -157,10 +158,11 @@ html, body {
   gap: 14px 0;
   justify-content: center;
   margin: 4px auto 0;
+  max-width: 100%;
 }
 .dot-row {
   display: grid;
-  gap: 10px;
+  gap: var(--gap, 10px);
   padding: 8px 10px;
   border-radius: 18px;
   cursor: pointer;
@@ -169,7 +171,7 @@ html, body {
 .dot-row:active { transform: scale(.97); }
 .dot-row.counted { background: rgba(255, 210, 63, .35); }
 .dot {
-  width: 30px; height: 30px; border-radius: 50%;
+  width: var(--dot, 30px); height: var(--dot, 30px); border-radius: 50%;
   background: var(--purple);
   box-shadow: 0 3px 0 rgba(42,33,80,.18);
 }

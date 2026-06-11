@@ -283,6 +283,17 @@ function roundTopbar() {
     </div>`;
 }
 
+// pick a dot size that fits the row within the screen width (no left-right scroll)
+function fitDots(b) {
+  const ROW_TAG = 44, ROW_PAD = 20, MAX_DOT = 30, MIN_DOT = 12;
+  const contentW = Math.min(app.clientWidth || 360, 560) - 36; // minus .app horizontal padding
+  const avail = Math.max(60, contentW - ROW_TAG - ROW_PAD);
+  const gap = b > 6 ? 6 : 10;
+  let dot = Math.floor((avail - (b - 1) * gap) / b);
+  dot = Math.max(MIN_DOT, Math.min(MAX_DOT, dot));
+  return { dot, gap };
+}
+
 function renderRound() {
   if (round.mode === 'pop') return renderBubblePop();
   return renderBuildCount();
@@ -305,10 +316,13 @@ function renderBuildCount() {
   `);
   app.appendChild(view);
 
-  // dots
+  // dots — size them to fit the screen width so a row never scrolls left/right
   const dots = view.querySelector('#dots');
+  const { dot, gap } = fitDots(p.b);
+  dots.style.setProperty('--dot', dot + 'px');
+  dots.style.setProperty('--gap', gap + 'px');
   for (let r = 0; r < p.a; r++) {
-    const row = el(`<div class="dot-row" data-row="${r}" style="grid-template-columns:repeat(${p.b},30px)"></div>`);
+    const row = el(`<div class="dot-row" data-row="${r}" style="grid-template-columns:repeat(${p.b},var(--dot))"></div>`);
     for (let c = 0; c < p.b; c++) row.appendChild(el('<span class="dot"></span>'));
     const tag = el('<span class="row-tag"></span>');
     row.appendChild(tag);
