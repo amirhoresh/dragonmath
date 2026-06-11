@@ -12,6 +12,7 @@ const defaultSave = () => ({
   stars: 0,            // lifetime stars -> dragon growth
   mastery: {},         // "a x b" -> {seen, correct}
   lastPlayed: 0,
+  muted: false,        // sound on/off
 });
 
 function load() {
@@ -26,6 +27,34 @@ function save(s) {
 }
 
 let state = load();
+
+// ---------- sound (WebAudio synth — no audio files, stays offline) ----------
+const audio = {
+  ctx: null,
+  ensure() {
+    if (this.ctx) return;
+    try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+  },
+  // play a short tone with a soft attack/decay envelope
+  tone(freq, dur, when = 0, type = 'sine', vol = 0.18) {
+    if (state.muted || !this.ctx) return;
+    const t0 = this.ctx.currentTime + when;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g).connect(this.ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  },
+  correct() { this.tone(660, 0.12, 0, 'triangle'); this.tone(990, 0.16, 0.10, 'triangle'); },
+  pop()     { this.tone(520, 0.07, 0, 'square', 0.12); },
+  wrong()   { this.tone(200, 0.18, 0, 'sine', 0.14); },
+  grow()    { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.18, i * 0.09, 'triangle', 0.16)); },
+};
 
 // ---------- dragon growth ----------
 // 5 stages by lifetime stars. Each stage = bigger + new accessory.
@@ -138,12 +167,15 @@ function answerOptions(answer) {
 const ROUND = { maxProblems: 12, maxMs: 5 * 60 * 1000, maxWrongStreak: 3 };
 let round = null;
 
-function startRound() {
+function startRound(mode) {
+  audio.ensure(); // first user gesture — unlock audio
   round = {
+    mode: mode || 'count', // 'count' = Build & Count, 'pop' = Bubble Pop
     index: 0,
     correctCount: 0,
     starsEarned: 0,
     wrongStreak: 0,
+    combo: 0,
     startTs: Date.now(),
     ending: false,
   };
@@ -187,10 +219,12 @@ function makeProblem(a, b, finalWin) {
 
 // ---------- star award ----------
 function awardStars(n, fromEl) {
+  const before = stageIndex(state.stars);
   round.starsEarned += n;
   state.stars += n;
   save(state);
   flyStars(n, fromEl);
+  if (stageIndex(state.stars) > before) audio.grow(); // dragon leveled up
 }
 
 // =================================================================
@@ -207,7 +241,10 @@ function renderHome() {
   app.innerHTML = '';
   const home = el(`
     <div class="home">
-      <h1 class="title">Dragon<b>Math</b></h1>
+      <div class="topbar">
+        <h1 class="title">Dragon<b>Math</b></h1>
+        <button class="mute" id="mute" aria-label="${state.muted ? 'Unmute sound' : 'Mute sound'}">${state.muted ? '🔇' : '🔊'}</button>
+      </div>
       <div class="dragon-wrap">
         ${dragonSVG(si)}
         <div class="dragon-name">${STAGES[si].name}</div>
@@ -215,26 +252,48 @@ function renderHome() {
         <div class="progress xpbar"><i style="width:${prog}%"></i></div>
       </div>
       <div class="stars-pill"><span class="star">★</span> ${state.stars}</div>
-      <button class="btn btn--big btn--pink" id="play">Play ▶</button>
-      <p class="subtitle">Tap the rows, count them up, pick the answer!</p>
+      <div class="mode-buttons">
+        <button class="btn btn--big btn--teal" id="play-count">🔢 Count &amp; Learn</button>
+        <button class="btn btn--big btn--pink" id="play-pop">⚡ Bubble Pop</button>
+      </div>
+      <p class="subtitle">Count &amp; Learn teaches the why. Bubble Pop is a fast game!</p>
     </div>
   `);
   app.appendChild(home);
-  home.querySelector('#play').onclick = () => startRound();
+  home.querySelector('#play-count').onclick = () => startRound('count');
+  home.querySelector('#play-pop').onclick = () => startRound('pop');
+  home.querySelector('#mute').onclick = (e) => {
+    state.muted = !state.muted;
+    save(state);
+    e.target.textContent = state.muted ? '🔇' : '🔊';
+    e.target.setAttribute('aria-label', state.muted ? 'Unmute sound' : 'Mute sound');
+    if (!state.muted) { audio.ensure(); audio.pop(); }
+  };
+}
+
+function roundTopbar() {
+  const left = Math.max(0, ROUND.maxProblems - round.index);
+  const pct = (round.index / ROUND.maxProblems) * 100;
+  const combo = round.combo >= 2 ? `<div class="combo">🔥 ×${round.combo}</div>` : '';
+  return `
+    <div class="topbar">
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      ${combo}
+      <div class="left-count">${left} left</div>
+    </div>`;
 }
 
 function renderRound() {
-  const p = problem;
-  const left = Math.max(0, ROUND.maxProblems - round.index);
-  const pct = (round.index / ROUND.maxProblems) * 100;
+  if (round.mode === 'pop') return renderBubblePop();
+  return renderBuildCount();
+}
 
+function renderBuildCount() {
+  const p = problem;
   app.innerHTML = '';
   const view = el(`
     <div class="round">
-      <div class="topbar">
-        <div class="progress"><i style="width:${pct}%"></i></div>
-        <div class="left-count">${left} left</div>
-      </div>
+      ${roundTopbar()}
       <div class="prompt-card">
         <p class="prompt-text"><span class="a">${p.a}</span> group${p.a === 1 ? '' : 's'} of <span class="b">${p.b}</span> = ?</p>
         <div class="running" id="running">${p.finalWin ? 'One more — you got this! ⭐' : 'Tap each row to count…'}</div>
@@ -290,39 +349,132 @@ function toggleRow(r) {
   }
 }
 
+// shared scoring — used by both Build & Count and Bubble Pop
+function commitCorrect(p, fromEl) {
+  p.locked = true;
+  recordAttempt(p.a, p.b, p.tries === 0);
+  round.correctCount++;
+  round.wrongStreak = 0;
+  round.combo = p.tries === 0 ? round.combo + 1 : 0;
+  const gained = p.tries === 0 ? 5 : 2;
+  awardStars(gained, fromEl);
+  audio.correct();
+  confetti();
+  round.index++;
+}
+function commitWrongReveal(p) {
+  p.locked = true;
+  recordAttempt(p.a, p.b, false);
+  round.wrongStreak++;
+  round.combo = 0;
+  round.index++;
+}
+
 function chooseAnswer(opt, btn) {
   const p = problem;
   if (p.locked) return;
   const hint = document.getElementById('hint');
 
   if (opt === p.answer) {
-    p.locked = true;
     btn.classList.add('correct');
-    recordAttempt(p.a, p.b, p.tries === 0);
-    round.correctCount++;
-    round.wrongStreak = 0;
-    // reward the attempt: more stars if first try, but always some
-    const gained = p.tries === 0 ? 5 : 2;
-    awardStars(gained, btn);
-    confetti();
-    hint.textContent = p.tries === 0 ? 'Yes! ⭐⭐⭐' : 'Got it! ⭐';
-    round.index++;
+    const firstTry = p.tries === 0;
+    commitCorrect(p, btn);
+    hint.textContent = firstTry ? 'Yes! ⭐⭐⭐' : 'Got it! ⭐';
     setTimeout(() => nextProblem(false), 850);
   } else {
     p.tries++;
+    audio.wrong();
     btn.classList.add('wrong');
     setTimeout(() => btn.classList.remove('wrong'), 350);
     if (p.tries >= 3) {
-      // reveal answer with the dot picture, then move on
-      p.locked = true;
-      recordAttempt(p.a, p.b, false);
-      round.wrongStreak++;
       hint.textContent = `It's ${p.answer}. Count the dots: ${p.a} row${p.a === 1 ? '' : 's'} of ${p.b}.`;
       revealAllRows();
-      round.index++;
+      commitWrongReveal(p);
       setTimeout(() => nextProblem(false), 1700);
     } else {
       hint.textContent = p.tries === 1 ? 'Almost — try again!' : 'One more try — count the rows!';
+    }
+  }
+}
+
+// ---------- Bubble Pop ----------
+function renderBubblePop() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text"><span class="a">${p.a}</span> × <span class="b">${p.b}</span> = ?</p>
+        <div class="running">${p.finalWin ? 'One more — you got this! ⭐' : 'Pop the right answer!'}</div>
+      </div>
+      <div class="pool" id="pool"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const pool = view.querySelector('#pool');
+  requestAnimationFrame(() => spawnBubbles(pool));
+}
+
+function spawnBubbles(pool) {
+  const p = problem;
+  const H = pool.clientHeight || 360;
+  const n = p.options.length;
+  p.options.forEach((val, i) => {
+    const color = COLORS[(i + 1) % COLORS.length];
+    const b = el(`<button class="bubble">${val}</button>`);
+    b.style.left = (6 + i * (88 / n)) + '%';
+    b.style.background = `radial-gradient(circle at 32% 30%, rgba(255,255,255,.5), transparent 62%), ${color}`;
+    pool.appendChild(b);
+    if (!reduce) {
+      const dist = H + 130;
+      const dur = 4200 + i * 350 + Math.random() * 900;
+      b.__anim = b.animate(
+        [{ transform: 'translateY(0)' }, { transform: `translateY(-${dist}px)` }],
+        { duration: dur, iterations: Infinity, easing: 'linear', delay: i * 250 }
+      );
+    } else {
+      // reduced motion: place bubbles statically, spread vertically
+      b.style.bottom = (20 + i * 70) + 'px';
+    }
+    b.onclick = () => popBubble(b, val, pool);
+  });
+}
+
+function stopBubbles(pool) {
+  [...pool.querySelectorAll('.bubble')].forEach((b) => b.__anim && b.__anim.pause());
+}
+
+function popBubble(b, val, pool) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+
+  if (val === p.answer) {
+    const firstTry = p.tries === 0;
+    audio.pop();
+    b.classList.add('correct');
+    stopBubbles(pool);
+    commitCorrect(p, b);
+    hint.textContent = firstTry ? `Pop! 🔥 ${p.a}×${p.b}=${p.answer}` : `Got it! ${p.answer}`;
+    setTimeout(() => nextProblem(false), 800);
+  } else {
+    p.tries++;
+    audio.wrong();
+    b.classList.add('wrong');
+    if (b.__anim) b.__anim.cancel();
+    setTimeout(() => b.remove(), 220);
+    if (p.tries >= 3) {
+      stopBubbles(pool);
+      [...pool.querySelectorAll('.bubble')].forEach((x) => {
+        if (parseInt(x.textContent, 10) === p.answer) x.classList.add('correct');
+      });
+      hint.textContent = `It's ${p.answer}. ${p.a} × ${p.b} = ${p.answer}.`;
+      commitWrongReveal(p);
+      setTimeout(() => nextProblem(false), 1500);
+    } else {
+      hint.textContent = 'Not that one — try again!';
     }
   }
 }

@@ -108,8 +108,32 @@ html, body {
 .dragon-stage { font-weight: 700; font-size: 16px; color: var(--ink); opacity: .7; }
 .xpbar { width: min(60vw, 240px); }
 
+.combo { font-weight: 800; color: var(--coral); font-size: 20px; white-space: nowrap; }
+
+.mute {
+  background: #fff; border: none; border-radius: 999px;
+  width: 52px; height: 52px; min-width: 52px; font-size: 26px;
+  box-shadow: var(--shadow); cursor: pointer; line-height: 1;
+}
+.mute:active { transform: translateY(3px); box-shadow: var(--shadow-press); }
+
 /* ---------- home ---------- */
-.home { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; text-align: center; }
+.home { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; text-align: center; }
+.home .topbar { width: 100%; align-items: center; }
+.mode-buttons { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+
+/* ---------- bubble pop ---------- */
+.pool { position: relative; flex: 1; min-height: 340px; overflow: hidden; }
+.bubble {
+  position: absolute; bottom: -96px;
+  width: 78px; height: 78px; border-radius: 50%;
+  border: none; font: inherit; font-weight: 800; font-size: 30px; color: #fff;
+  background: var(--purple);
+  box-shadow: var(--shadow), inset 0 -6px 10px rgba(0,0,0,.12);
+  cursor: pointer; will-change: transform;
+}
+.bubble.correct { outline: 5px solid var(--teal); animation: pop .3s ease; }
+.bubble.wrong { background: #ff5a5a !important; animation: shake .3s ease; }
 .title { font-size: 52px; font-weight: 800; margin: 0; color: var(--purple); letter-spacing: .5px; }
 .title b { color: var(--pink); }
 .subtitle { font-size: 20px; opacity: .8; margin: 0; }
