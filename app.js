@@ -192,8 +192,9 @@ function roundShouldEnd() {
 
 let problem = null;
 function nextProblem(trivial) {
-  if (round.mode === 'shapes' || round.mode === 'triangles') {
-    const make = round.mode === 'shapes' ? makeShapeProblem : makeTriangleProblem;
+  const makers = { shapes: makeShapeProblem, triangles: makeTriangleProblem, division: makeDivisionProblem, primes: makePrimeProblem };
+  if (makers[round.mode]) {
+    const make = makers[round.mode];
     if (!trivial && roundShouldEnd() && !round.ending) {
       round.ending = true; problem = make(true); renderRound(); return;
     }
@@ -267,8 +268,10 @@ function renderHome() {
         <button class="btn btn--big btn--pink" id="play-pop">⚡ Bubble Pop</button>
         <button class="btn btn--big btn--coral" id="play-shapes">🔷 Shapes</button>
         <button class="btn btn--big" id="play-triangles">📐 Triangles</button>
+        <button class="btn btn--big btn--teal" id="play-division">➗ Division</button>
+        <button class="btn btn--big btn--pink" id="play-primes">🧱 Primes</button>
       </div>
-      <p class="subtitle">Multiply, pop bubbles, and learn shapes — grow your dragon!</p>
+      <p class="subtitle">Multiply, divide, pop bubbles & learn shapes — grow your dragon!</p>
     </div>
   `);
   app.appendChild(home);
@@ -276,6 +279,8 @@ function renderHome() {
   home.querySelector('#play-pop').onclick = () => startRound('pop');
   home.querySelector('#play-shapes').onclick = () => startRound('shapes');
   home.querySelector('#play-triangles').onclick = () => startRound('triangles');
+  home.querySelector('#play-division').onclick = () => startRound('division');
+  home.querySelector('#play-primes').onclick = () => startRound('primes');
   home.querySelector('#mute').onclick = (e) => {
     state.muted = !state.muted;
     save(state);
@@ -318,6 +323,8 @@ function sizeDots(stage, dots, a, b) {
 function renderRound() {
   if (round.mode === 'triangles') return renderTriangles();
   if (round.mode === 'shapes') return renderShapes();
+  if (round.mode === 'division') return renderDivision();
+  if (round.mode === 'primes') return renderPrimes();
   if (round.mode === 'pop') return renderBubblePop();
   return renderBuildCount();
 }
@@ -508,6 +515,200 @@ function revealAllRows() {
     count += p.b;
     row.querySelector('.row-tag').textContent = count;
   });
+}
+
+// ====================== DIVISION GAME ======================
+// Inverse of the times tables, no remainders. "Split N dots into R equal rows —
+// how many in each row?" Reuses the Build & Count dot array + reveal.
+function makeDivisionProblem(finalWin) {
+  const easy = finalWin || round.index === 0;
+  let divisor, quotient;
+  if (easy) {
+    divisor = 2 + Math.floor(rand() * 2);    // 2..3 rows
+    quotient = 2 + Math.floor(rand() * 3);   // 2..4 per row
+  } else {
+    // weight by the underlying ×-fact she misses; skip the trivial ÷1 / =1 cases
+    const pool = [];
+    for (let d = 2; d <= 10; d++) for (let q = 2; q <= 10; q++) pool.push([d, q]);
+    const weights = pool.map(([d, q]) => factWeight(d, q));
+    const total = weights.reduce((x, y) => x + y, 0);
+    let r = rand() * total, pick = pool[pool.length - 1];
+    for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) { pick = pool[i]; break; } }
+    [divisor, quotient] = pick;
+    // no identical question back-to-back
+    if (divisor + '/' + quotient === round.lastDivKey) return makeDivisionProblem(finalWin);
+  }
+  round.lastDivKey = divisor + '/' + quotient;
+  return {
+    kind: 'div', a: divisor, b: quotient, dividend: divisor * quotient,
+    answer: quotient, options: answerOptions(quotient),
+    tries: 0, locked: false, finalWin,
+  };
+}
+
+function renderDivision() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text"><span class="a">${p.dividend}</span> ÷ <span class="b">${p.a}</span> = ?</p>
+        <div class="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : `חילקנו ${p.dividend} נקודות ל-${p.a} שורות שוות. כמה בכל שורה?`}</div>
+      </div>
+      <div class="stage"><div class="dots" id="dots"></div></div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const dots = view.querySelector('#dots');
+  for (let r = 0; r < p.a; r++) {
+    const row = el(`<div class="dot-row" data-row="${r}" style="grid-template-columns:repeat(${p.b},var(--dot)) auto"></div>`);
+    for (let c = 0; c < p.b; c++) row.appendChild(el('<span class="dot"></span>'));
+    row.appendChild(el('<span class="row-tag"></span>'));
+    dots.appendChild(row);
+  }
+  requestAnimationFrame(() => sizeDots(view.querySelector('.stage'), dots, p.a, p.b));
+  const answers = view.querySelector('#answers');
+  p.options.forEach((opt) => {
+    const b = el(`<button class="btn answer">${opt}</button>`);
+    b.onclick = () => chooseDivAnswer(opt, b);
+    answers.appendChild(b);
+  });
+}
+
+function chooseDivAnswer(opt, btn) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  if (opt === p.answer) {
+    btn.classList.add('correct');
+    const firstTry = p.tries === 0;
+    commitCorrect(p, btn);
+    hint.textContent = firstTry ? 'כל הכבוד! ⭐⭐⭐' : 'יפה! ⭐';
+    setTimeout(() => nextProblem(false), 850);
+  } else {
+    p.tries++;
+    audio.wrong();
+    btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 350);
+    if (p.tries >= 2) {
+      hint.textContent = `התשובה היא ${p.answer}. ${p.dividend} ÷ ${p.a} = ${p.answer} — בכל שורה ${p.answer}.`;
+      revealAllRows();
+      commitWrongReveal(p);
+      showContinue();
+    } else {
+      hint.textContent = 'כמעט! עוד ניסיון אחד';
+    }
+  }
+}
+
+// ====================== PRIMES GAME ======================
+// "A number that can't form a full rectangle." Binary ראשוני / פריק, then the
+// dots reveal the rectangle (composite) or single line (prime). Range 2–30.
+const PRIMES_30 = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
+const COMPOSITES_30 = [4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20, 21, 22, 24, 25, 26, 27, 28, 30];
+const PRIMES_EASY = [2, 3, 5];
+const COMPOSITES_EASY = [4, 6, 9];
+
+function isPrimeNum(n) {
+  if (n < 2) return false;
+  for (let i = 2; i * i <= n; i++) if (n % i === 0) return false;
+  return true;
+}
+// most-square factor pair with both factors > 1 (composite); [1, n] if prime
+function squareFactor(n) {
+  let best = [1, n];
+  for (let r = 2; r * r <= n; r++) if (n % r === 0) best = [r, n / r];
+  return best;
+}
+
+function makePrimeProblem(finalWin) {
+  const easy = finalWin || round.index === 0;
+  const primes = easy ? PRIMES_EASY : PRIMES_30;
+  const comps = easy ? COMPOSITES_EASY : COMPOSITES_30;
+  let n, guard = 0;
+  do {
+    const set = rand() < 0.5 ? primes : comps;   // ~50/50 so both answers stay live
+    n = set[Math.floor(rand() * set.length)];
+  } while (n === round.lastPrimeN && guard++ < 12);
+  round.lastPrimeN = n;
+  return { kind: 'prime', n, isPrime: isPrimeNum(n), tries: 0, locked: false, finalWin };
+}
+
+function renderPrimes() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">${p.finalWin ? 'עוד אחת! ⭐' : 'המספר הזה ראשוני או פריק?'}</p>
+        <div class="running">ראשוני = מתחלק רק ב-1 ובעצמו</div>
+      </div>
+      <div class="prime-num">${p.n}</div>
+      <div class="stage"><div class="dots" id="dots"></div></div>
+      <div class="hint" id="hint"></div>
+      <div class="answers answers--two" id="answers">
+        <button class="btn answer" id="opt-prime">ראשוני</button>
+        <button class="btn answer" id="opt-comp">פריק</button>
+      </div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#opt-prime').onclick = (e) => choosePrime(true, e.currentTarget);
+  view.querySelector('#opt-comp').onclick = (e) => choosePrime(false, e.currentTarget);
+}
+
+function primeExplain(p) {
+  if (p.isPrime) return `${p.n} ראשוני — אפשר לסדר אותו רק בשורה אחת.`;
+  const [r, c] = squareFactor(p.n);
+  return `${p.n} פריק — אפשר לסדר אותו במלבן של ${r} × ${c}.`;
+}
+
+// fill the stage with the rectangle (composite) or single row (prime)
+function revealPrimeDots() {
+  const p = problem;
+  const stage = document.querySelector('.round .stage');
+  const dots = document.getElementById('dots');
+  if (!dots) return;
+  dots.innerHTML = '';
+  const [rows, cols] = p.isPrime ? [1, p.n] : squareFactor(p.n);
+  for (let r = 0; r < rows; r++) {
+    const row = el(`<div class="dot-row" style="grid-template-columns:repeat(${cols},var(--dot))"></div>`);
+    for (let c = 0; c < cols; c++) row.appendChild(el('<span class="dot"></span>'));
+    dots.appendChild(row);
+  }
+  requestAnimationFrame(() => sizeDots(stage, dots, rows, cols));
+}
+
+function choosePrime(saysPrime, btn) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  if (saysPrime === p.isPrime) {
+    btn.classList.add('correct');
+    commitCorrect(p, btn);
+    revealPrimeDots();
+    hint.textContent = primeExplain(p);
+    setTimeout(() => nextProblem(false), 1200);
+  } else {
+    p.tries++;
+    audio.wrong();
+    btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 350);
+    if (p.tries >= 2) {
+      const right = document.getElementById(p.isPrime ? 'opt-prime' : 'opt-comp');
+      if (right) right.classList.add('correct');
+      revealPrimeDots();
+      hint.textContent = primeExplain(p);
+      commitWrongReveal(p);
+      showContinue();
+    } else {
+      hint.textContent = 'נסי שוב — חשבי אם אפשר לסדר אותו במלבן';
+    }
+  }
 }
 
 // ====================== SHAPES GAME ======================

@@ -184,6 +184,7 @@ html, body {
 .round { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: clamp(6px, 1.6vh, 16px); }
 /* flexible centered area that holds the visual (dots / shape / grid); never overflows */
 .stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.prime-num { font-size: clamp(46px, 11vh, 92px); font-weight: 800; color: var(--purple); line-height: 1; margin: clamp(2px, 1vh, 10px) 0; text-align: center; }
 .prompt-card {
   background: var(--card);
   border-radius: var(--radius);
@@ -262,6 +263,16 @@ html, body {
   .answers .btn, .mode-buttons .btn { min-height: clamp(44px, 20vh, 70px); }
   .home { gap: clamp(4px, 1.4vh, 14px); }
   .mode-buttons { gap: 8px; }
+  /* 6 home buttons don't fit as 3 rows on a short landscape phone — go 3×2,
+     shrink the dragon, and drop the tagline so nothing clips. */
+  .home .mode-buttons { grid-template-columns: repeat(3, 1fr); }
+  .home .mode-buttons .btn { min-height: clamp(38px, 18vh, 58px); font-size: clamp(15px, 3.1vh, 20px); }
+  .home .dragon-svg { width: min(26vw, 14vh, 120px); }
+  .home .title { font-size: clamp(24px, 5vh, 44px); }
+  .home .dragon-wrap { gap: 2px; }
+  .home .subtitle { display: none; }
+  /* binary primes answers stay full-width, not quartered by the 4-col round rule */
+  .answers--two { grid-template-columns: 1fr 1fr !important; max-width: 520px; margin: 0 auto; width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
