@@ -118,7 +118,7 @@ html, body {
 
 /* ---------- dragon ---------- */
 .dragon-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.dragon-svg { width: min(52vw, 24vh, 230px); height: auto; filter: drop-shadow(0 10px 0 rgba(42,33,80,.12)); transition: transform .4s cubic-bezier(.34,1.56,.64,1); }
+.dragon-svg { width: min(52vw, 19vh, 230px); height: auto; filter: drop-shadow(0 10px 0 rgba(42,33,80,.12)); transition: transform .4s cubic-bezier(.34,1.56,.64,1); }
 .dragon-bob { animation: bob 2.6s ease-in-out infinite; }
 @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
 .dragon-name { font-weight: 800; font-size: 22px; color: var(--purple); }
@@ -138,7 +138,7 @@ html, body {
 .home { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(6px, 2vh, 22px); text-align: center; }
 .home .topbar { width: 100%; align-items: center; }
 .mode-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(8px, 1.4vh, 12px); width: 100%; }
-.mode-buttons .btn { font-size: clamp(18px, 3.4vh, 24px); min-height: clamp(58px, 11vh, 92px); padding: 10px; line-height: 1.15; }
+.mode-buttons .btn { font-size: clamp(18px, 3.4vh, 24px); min-height: clamp(50px, 8.5vh, 78px); padding: 10px; line-height: 1.15; }
 
 /* ---------- bubble pop ---------- */
 .pool { position: relative; flex: 1; min-height: 0; overflow: hidden; }
@@ -185,6 +185,17 @@ html, body {
 /* flexible centered area that holds the visual (dots / shape / grid); never overflows */
 .stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .prime-num { font-size: clamp(46px, 11vh, 92px); font-weight: 800; color: var(--purple); line-height: 1; margin: clamp(2px, 1vh, 10px) 0; text-align: center; }
+/* ---------- fractions ---------- */
+.frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.04; vertical-align: middle; font-weight: 800; }
+.frac-n { border-bottom: 3px solid currentColor; padding: 0 .3em; }
+.frac-d { padding-top: 1px; }
+.frac-eq { direction: ltr; display: flex; align-items: center; justify-content: center; gap: .35em; flex-wrap: wrap; }
+.frac-eq .op { font-weight: 800; }
+.frac-eq .qmark { color: var(--pink); font-weight: 800; }
+.frac-answer .frac { font-size: 1em; color: inherit; }
+.frac-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: clamp(8px, 2.2vh, 18px); overflow: hidden; }
+.frac-bar { width: min(74vw, 360px); height: auto; max-height: 13vh; }
+.frac-grid { width: auto; height: auto; max-width: min(60vw, 100%); max-height: 32vh; }
 .prompt-card {
   background: var(--card);
   border-radius: var(--radius);
@@ -265,8 +276,8 @@ html, body {
   .mode-buttons { gap: 8px; }
   /* 6 home buttons don't fit as 3 rows on a short landscape phone — go 3×2,
      shrink the dragon, and drop the tagline so nothing clips. */
-  .home .mode-buttons { grid-template-columns: repeat(3, 1fr); }
-  .home .mode-buttons .btn { min-height: clamp(38px, 18vh, 58px); font-size: clamp(15px, 3.1vh, 20px); }
+  .home .mode-buttons { grid-template-columns: repeat(4, 1fr); }
+  .home .mode-buttons .btn { min-height: clamp(36px, 16vh, 56px); font-size: clamp(14px, 2.9vh, 19px); }
   .home .dragon-svg { width: min(26vw, 14vh, 120px); }
   .home .title { font-size: clamp(24px, 5vh, 44px); }
   .home .dragon-wrap { gap: 2px; }

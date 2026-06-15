@@ -192,7 +192,7 @@ function roundShouldEnd() {
 
 let problem = null;
 function nextProblem(trivial) {
-  const makers = { shapes: makeShapeProblem, triangles: makeTriangleProblem, division: makeDivisionProblem, primes: makePrimeProblem };
+  const makers = { shapes: makeShapeProblem, triangles: makeTriangleProblem, division: makeDivisionProblem, primes: makePrimeProblem, fractions: makeFractionProblem };
   if (makers[round.mode]) {
     const make = makers[round.mode];
     if (!trivial && roundShouldEnd() && !round.ending) {
@@ -270,6 +270,7 @@ function renderHome() {
         <button class="btn btn--big" id="play-triangles">📐 Triangles</button>
         <button class="btn btn--big btn--teal" id="play-division">➗ Division</button>
         <button class="btn btn--big btn--pink" id="play-primes">🧱 Primes</button>
+        <button class="btn btn--big btn--coral" id="play-fractions">🍕 Fractions</button>
       </div>
       <p class="subtitle">Multiply, divide, pop bubbles & learn shapes — grow your dragon!</p>
     </div>
@@ -281,6 +282,7 @@ function renderHome() {
   home.querySelector('#play-triangles').onclick = () => startRound('triangles');
   home.querySelector('#play-division').onclick = () => startRound('division');
   home.querySelector('#play-primes').onclick = () => startRound('primes');
+  home.querySelector('#play-fractions').onclick = () => startRound('fractions');
   home.querySelector('#mute').onclick = (e) => {
     state.muted = !state.muted;
     save(state);
@@ -325,6 +327,7 @@ function renderRound() {
   if (round.mode === 'shapes') return renderShapes();
   if (round.mode === 'division') return renderDivision();
   if (round.mode === 'primes') return renderPrimes();
+  if (round.mode === 'fractions') return renderFractions();
   if (round.mode === 'pop') return renderBubblePop();
   return renderBuildCount();
 }
@@ -707,6 +710,169 @@ function choosePrime(saysPrime, btn) {
       showContinue();
     } else {
       hint.textContent = 'נסי שוב — חשבי אם אפשר לסדר אותו במלבן';
+    }
+  }
+}
+
+// ====================== FRACTIONS GAME ======================
+// +, −, × with same and unlike denominators (unlike = one denom is a multiple
+// of the other). Answers must be in simplest form. Shown concretely: shaded
+// bars for +/−, an area grid for ×. Feeds the same dragon/stars + stop-rule.
+function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { const t = a % b; a = b; b = t; } return a || 1; }
+function reduceFrac(n, d) { const g = gcd(n, d); return { n: n / g, d: d / g }; }
+function fsame(a, b) { return a.n === b.n && a.d === b.d; }        // same written form
+function feq(a, b) { return a.n * b.d === b.n * a.d; }             // same value
+
+function buildFrac(subtype, easy) {
+  const ri = (lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
+  let op, o1, o2, raw;
+  if (subtype === 'addSame') {
+    const d = easy ? ri(3, 5) : ri(3, 8);
+    const n1 = ri(1, d - 2), n2 = ri(1, d - 1 - n1);
+    op = '+'; o1 = { n: n1, d }; o2 = { n: n2, d }; raw = { n: n1 + n2, d };
+  } else if (subtype === 'subSame') {
+    const d = easy ? ri(3, 5) : ri(3, 8);
+    const n1 = ri(2, d - 1), n2 = ri(1, n1 - 1);
+    op = '-'; o1 = { n: n1, d }; o2 = { n: n2, d }; raw = { n: n1 - n2, d };
+  } else if (subtype === 'mul') {
+    const d1 = ri(2, easy ? 3 : 4), d2 = ri(2, easy ? 3 : 4);
+    const n1 = ri(1, d1 - 1), n2 = ri(1, d2 - 1);
+    op = '×'; o1 = { n: n1, d: d1 }; o2 = { n: n2, d: d2 }; raw = { n: n1 * n2, d: d1 * d2 };
+  } else if (subtype === 'addUnlike') {
+    const ds = ri(2, easy ? 2 : 4), k = ri(2, 3), dl = ds * k;
+    const a = ri(1, ds - 1), ak = a * k, b = ri(1, dl - 1 - ak);
+    op = '+'; o1 = { n: a, d: ds }; o2 = { n: b, d: dl }; raw = { n: ak + b, d: dl };
+  } else { // subUnlike — larger (denom dl) minus smaller (denom ds), stays positive
+    const ds = ri(2, easy ? 2 : 4), k = ri(2, 3), dl = ds * k;
+    const a = ri(1, ds - 1), ak = a * k, b = ri(ak + 1, dl - 1);
+    op = '-'; o1 = { n: b, d: dl }; o2 = { n: a, d: ds }; raw = { n: b - ak, d: dl };
+  }
+  return { subtype, op, o1, o2, raw, ans: reduceFrac(raw.n, raw.d) };
+}
+
+function fracOptions(p) {
+  const ans = p.ans, raw = p.raw, cands = [];
+  if (!fsame(raw, ans)) cands.push({ n: raw.n, d: raw.d });               // forgot to simplify
+  if (p.op === '+' || p.op === '×') cands.push({ n: p.o1.n + p.o2.n, d: p.o1.d + p.o2.d }); // added the bottoms too
+  if (p.op === '-') cands.push({ n: Math.abs(p.o1.n - p.o2.n) || 1, d: Math.abs(p.o1.d - p.o2.d) });
+  cands.push({ n: ans.n + 1, d: ans.d }, { n: ans.n, d: ans.d + 1 },
+             { n: ans.n + 1, d: ans.d + 1 }, { n: Math.max(1, ans.n - 1), d: ans.d }, { n: ans.n + 2, d: ans.d });
+  const out = [];
+  const ok = (f) => f && Number.isInteger(f.n) && Number.isInteger(f.d) && f.n > 0 && f.d > 1
+                    && !fsame(f, ans) && !out.some((o) => fsame(o, f));
+  for (const c of cands) { if (out.length >= 3) break; if (ok(c)) out.push(c); }
+  let e = 2; while (out.length < 3 && e < 24) { const f = { n: ans.n + e, d: ans.d }; if (ok(f)) out.push(f); e++; }
+  return shuffleInPlace([{ n: ans.n, d: ans.d, correct: true }, ...out.map((f) => ({ n: f.n, d: f.d, correct: false }))]);
+}
+
+function makeFractionProblem(finalWin) {
+  const easy = finalWin || round.index === 0;
+  const types = ['addSame', 'subSame', 'mul', 'addUnlike', 'subUnlike'];
+  const subtype = easy ? 'addSame' : types[Math.floor(rand() * types.length)];
+  const p = buildFrac(subtype, easy);
+  const key = `${p.o1.n}/${p.o1.d}${p.op}${p.o2.n}/${p.o2.d}`;
+  if (key === round.lastFracKey && !easy) return makeFractionProblem(finalWin);
+  round.lastFracKey = key;
+  p.kind = 'frac'; p.tries = 0; p.locked = false; p.finalWin = finalWin;
+  p.options = fracOptions(p);
+  return p;
+}
+
+function fracTile(f) { return `<span class="frac"><span class="frac-n">${f.n}</span><span class="frac-d">${f.d}</span></span>`; }
+
+// a bar split into d parts with the first n shaded
+function fracBarSVG(n, d, fill) {
+  const W = 320, H = 46, seg = W / d;
+  let cells = '';
+  for (let i = 0; i < d; i++)
+    cells += `<rect x="${i * seg}" y="0" width="${seg}" height="${H}" fill="${i < n ? fill : '#fff'}" stroke="#2a2150" stroke-width="3"/>`;
+  return `<svg viewBox="-2 -2 ${W + 4} ${H + 4}" class="frac-bar" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${cells}</svg>`;
+}
+
+// area model for a×b: d1 columns × d2 rows; overlap of n1 cols & n2 rows is the product
+function fracGridSVG(n1, d1, n2, d2) {
+  const S = 46, W = d1 * S, H = d2 * S;
+  let cells = '';
+  for (let r = 0; r < d2; r++) for (let c = 0; c < d1; c++) {
+    const inA = c < n1, inB = r < n2;
+    const fill = inA && inB ? '#7b4dff' : (inA || inB ? '#dccdff' : '#fff');
+    cells += `<rect x="${c * S}" y="${r * S}" width="${S}" height="${S}" fill="${fill}" stroke="#2a2150" stroke-width="3"/>`;
+  }
+  return `<svg viewBox="-2 -2 ${W + 4} ${H + 4}" class="frac-grid" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${cells}</svg>`;
+}
+
+function fracRunning(p) {
+  if (p.op === '×') return 'איזה חלק מהשלם צבוע? (בצורה מצומצמת)';
+  if (p.op === '-') return 'כמה נשאר? (בצורה מצומצמת)';
+  return 'כמה יוצא ביחד? (בצורה מצומצמת)';
+}
+
+function fracExplain(p) {
+  const r = p.raw, a = p.ans;
+  if (fsame(r, a)) return `התשובה: ${a.n}/${a.d}`;
+  return `${r.n}/${r.d} = ${a.n}/${a.d} (מצמצמים)`;
+}
+
+function renderFractions() {
+  const p = problem;
+  app.innerHTML = '';
+  const eq = `${fracTile(p.o1)}<span class="op">${p.op}</span>${fracTile(p.o2)}<span class="op">=</span><span class="qmark">?</span>`;
+  const visual = p.op === '×'
+    ? fracGridSVG(p.o1.n, p.o1.d, p.o2.n, p.o2.d)
+    : fracBarSVG(p.o1.n, p.o1.d, COLORS[0]) + fracBarSVG(p.o2.n, p.o2.d, COLORS[2]);
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text frac-eq">${eq}</p>
+        <div class="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : fracRunning(p)}</div>
+      </div>
+      <div class="frac-stage" id="fstage">${visual}</div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.options.forEach((o) => {
+    const b = el(`<button class="btn answer frac-answer" data-correct="${o.correct}">${fracTile(o)}</button>`);
+    b.onclick = () => chooseFrac(o, b);
+    answers.appendChild(b);
+  });
+}
+
+function revealFrac() {
+  const p = problem;
+  if (p.op === '×') return; // the grid already shows the shaded answer
+  const st = document.getElementById('fstage');
+  if (st) st.innerHTML = fracBarSVG(p.raw.n, p.raw.d, COLORS[3]);
+}
+
+function chooseFrac(o, btn) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  if (o.correct) {
+    btn.classList.add('correct');
+    const firstTry = p.tries === 0;
+    commitCorrect(p, btn);
+    hint.textContent = firstTry ? 'כל הכבוד! ⭐⭐⭐' : 'יפה! ⭐';
+    setTimeout(() => nextProblem(false), 900);
+  } else {
+    p.tries++;
+    audio.wrong();
+    btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 350);
+    const needsSimplify = feq(o, p.ans);   // right value, just not reduced
+    if (p.tries >= 2) {
+      const right = document.querySelector('.frac-answer[data-correct="true"]');
+      if (right) right.classList.add('correct');
+      revealFrac();
+      hint.textContent = fracExplain(p);
+      commitWrongReveal(p);
+      showContinue();
+    } else {
+      hint.textContent = needsSimplify ? 'כמעט! צריך לצמצם את השבר' : 'לא בדיוק — נסי שוב';
     }
   }
 }
