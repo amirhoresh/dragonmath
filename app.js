@@ -133,8 +133,12 @@ function pickFact(trivial) {
   for (let a = 1; a <= 10; a++) for (let b = 1; b <= 10; b++) pool.push([a, b]);
   const weights = pool.map(([a, b]) => factWeight(a, b));
   const total = weights.reduce((x, y) => x + y, 0);
-  let r = rand() * total;
-  for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i]; }
+  for (let t = 0; t < 20; t++) {
+    let r = rand() * total, choice = pool[pool.length - 1];
+    for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) { choice = pool[i]; break; } }
+    const key = 'm:' + Math.min(choice[0], choice[1]) + 'x' + Math.max(choice[0], choice[1]);
+    if (t === 19 || !recentHas(key, 8)) { remember(key); return choice; }
+  }
   return pool[pool.length - 1];
 }
 // deterministic-ish PRNG seeded by time, fine for a game
@@ -178,9 +182,15 @@ function startRound(mode) {
     combo: 0,
     startTs: Date.now(),
     ending: false,
+    recent: [],          // recently-asked question keys (anti-repeat window)
   };
   nextProblem(true);
 }
+
+// Anti-repeat: keep a sliding window of recent question keys so the same
+// question can't pop up again for several turns. Each game uses its own key.
+function recentHas(key, window) { return (round.recent || []).slice(-window).includes(key); }
+function remember(key) { (round.recent || (round.recent = [])).push(key); }
 
 function roundShouldEnd() {
   if (!round) return true;
@@ -341,6 +351,48 @@ function showContinue() {
   view.appendChild(b);
 }
 
+// ---------- paint-to-count helper (shared by Count & Learn and Division) ----------
+// No dots by default — she calculates from memory. If stuck, she taps "paint",
+// then taps each ROW to fill it; the row tag skip-counts (b, 2b, 3b…).
+function buildPaintStage(stage, rows, cols) {
+  stage.innerHTML = '';
+  const btn = el('<button class="btn btn--ghost paint-btn">🎨 צבעי את הנקודות</button>');
+  btn.onclick = () => paintGrid(stage, rows, cols);
+  stage.appendChild(btn);
+}
+function paintGrid(stage, rows, cols) {
+  stage.innerHTML = '<div class="dots" id="dots"></div>';
+  const dots = stage.querySelector('#dots');
+  let filled = 0;
+  for (let r = 0; r < rows; r++) {
+    const row = el(`<div class="dot-row paintable" style="grid-template-columns:repeat(${cols},var(--dot)) auto"></div>`);
+    for (let c = 0; c < cols; c++) row.appendChild(el('<span class="dot"></span>'));
+    const tag = el('<span class="row-tag"></span>');
+    row.appendChild(tag);
+    row.onclick = () => {
+      if (problem.locked || row.classList.contains('counted')) return;
+      row.classList.add('counted');
+      filled++;
+      tag.textContent = filled * cols;
+      audio.pop();
+    };
+    dots.appendChild(row);
+  }
+  requestAnimationFrame(() => sizeDots(stage, dots, rows, cols));
+}
+// full filled grid with cumulative tags — used on the answer reveal
+function revealFullGrid(stage, rows, cols) {
+  stage.innerHTML = '<div class="dots" id="dots"></div>';
+  const dots = stage.querySelector('#dots');
+  for (let r = 0; r < rows; r++) {
+    const row = el(`<div class="dot-row counted" style="grid-template-columns:repeat(${cols},var(--dot)) auto"></div>`);
+    for (let c = 0; c < cols; c++) row.appendChild(el('<span class="dot"></span>'));
+    row.appendChild(el(`<span class="row-tag">${(r + 1) * cols}</span>`));
+    dots.appendChild(row);
+  }
+  requestAnimationFrame(() => sizeDots(stage, dots, rows, cols));
+}
+
 function renderBuildCount() {
   const p = problem;
   app.innerHTML = '';
@@ -349,28 +401,16 @@ function renderBuildCount() {
       ${roundTopbar()}
       <div class="prompt-card">
         <p class="prompt-text">${p.a === 1 ? 'קבוצה אחת' : `<span class="a">${p.a}</span> קבוצות`} של <span class="b">${p.b}</span> = ?</p>
-        <div class="running" id="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : 'כמה נקודות יש בסך הכול?'}</div>
+        <div class="running" id="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : 'כמה זה ביחד? אם צריך — צבעי לספור'}</div>
       </div>
-      <div class="stage"><div class="dots" id="dots"></div></div>
+      <div class="stage"></div>
       <div class="hint" id="hint"></div>
       <div class="answers" id="answers"></div>
     </div>
   `);
   app.appendChild(view);
+  buildPaintStage(view.querySelector('.stage'), p.a, p.b);
 
-  // dots
-  const dots = view.querySelector('#dots');
-  for (let r = 0; r < p.a; r++) {
-    const row = el(`<div class="dot-row" data-row="${r}" style="grid-template-columns:repeat(${p.b},var(--dot)) auto"></div>`);
-    for (let c = 0; c < p.b; c++) row.appendChild(el('<span class="dot"></span>'));
-    const tag = el('<span class="row-tag"></span>');
-    row.appendChild(tag);
-    dots.appendChild(row);
-  }
-  // size dots to fit BOTH the width and height of the stage (never scroll)
-  requestAnimationFrame(() => sizeDots(view.querySelector('.stage'), dots, p.a, p.b));
-
-  // answers
   const answers = view.querySelector('#answers');
   p.options.forEach((opt) => {
     const b = el(`<button class="btn answer">${opt}</button>`);
@@ -418,7 +458,7 @@ function chooseAnswer(opt, btn) {
     setTimeout(() => btn.classList.remove('wrong'), 350);
     if (p.tries >= 2) {
       hint.textContent = `התשובה היא ${p.answer}. זה ${p.a === 1 ? 'שורה אחת' : `${p.a} שורות`} של ${p.b}.`;
-      revealAllRows();
+      revealFullGrid(document.querySelector('.round .stage'), p.a, p.b);
       commitWrongReveal(p);
       showContinue();
     } else {
@@ -535,13 +575,14 @@ function makeDivisionProblem(finalWin) {
     for (let d = 2; d <= 10; d++) for (let q = 2; q <= 10; q++) pool.push([d, q]);
     const weights = pool.map(([d, q]) => factWeight(d, q));
     const total = weights.reduce((x, y) => x + y, 0);
-    let r = rand() * total, pick = pool[pool.length - 1];
-    for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) { pick = pool[i]; break; } }
-    [divisor, quotient] = pick;
-    // no identical question back-to-back
-    if (divisor + '/' + quotient === round.lastDivKey) return makeDivisionProblem(finalWin);
+    for (let t = 0; t < 20; t++) {
+      let r = rand() * total, pick = pool[pool.length - 1];
+      for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) { pick = pool[i]; break; } }
+      [divisor, quotient] = pick;
+      if (t === 19 || !recentHas('dv:' + divisor + '/' + quotient, 8)) break;
+    }
   }
-  round.lastDivKey = divisor + '/' + quotient;
+  remember('dv:' + divisor + '/' + quotient);
   return {
     kind: 'div', a: divisor, b: quotient, dividend: divisor * quotient,
     answer: quotient, options: answerOptions(quotient),
@@ -557,22 +598,15 @@ function renderDivision() {
       ${roundTopbar()}
       <div class="prompt-card">
         <p class="prompt-text"><span class="a">${p.dividend}</span> ÷ <span class="b">${p.a}</span> = ?</p>
-        <div class="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : `חילקנו ${p.dividend} נקודות ל-${p.a} שורות שוות. כמה בכל שורה?`}</div>
+        <div class="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : `${p.dividend} נקודות, ${p.a} שורות שוות — כמה בכל שורה? אם צריך, צבעי לספור`}</div>
       </div>
-      <div class="stage"><div class="dots" id="dots"></div></div>
+      <div class="stage"></div>
       <div class="hint" id="hint"></div>
       <div class="answers" id="answers"></div>
     </div>
   `);
   app.appendChild(view);
-  const dots = view.querySelector('#dots');
-  for (let r = 0; r < p.a; r++) {
-    const row = el(`<div class="dot-row" data-row="${r}" style="grid-template-columns:repeat(${p.b},var(--dot)) auto"></div>`);
-    for (let c = 0; c < p.b; c++) row.appendChild(el('<span class="dot"></span>'));
-    row.appendChild(el('<span class="row-tag"></span>'));
-    dots.appendChild(row);
-  }
-  requestAnimationFrame(() => sizeDots(view.querySelector('.stage'), dots, p.a, p.b));
+  buildPaintStage(view.querySelector('.stage'), p.a, p.b);
   const answers = view.querySelector('#answers');
   p.options.forEach((opt) => {
     const b = el(`<button class="btn answer">${opt}</button>`);
@@ -598,7 +632,7 @@ function chooseDivAnswer(opt, btn) {
     setTimeout(() => btn.classList.remove('wrong'), 350);
     if (p.tries >= 2) {
       hint.textContent = `התשובה היא ${p.answer}. ${p.dividend} ÷ ${p.a} = ${p.answer} — בכל שורה ${p.answer}.`;
-      revealAllRows();
+      revealFullGrid(document.querySelector('.round .stage'), p.a, p.b);
       commitWrongReveal(p);
       showContinue();
     } else {
@@ -635,8 +669,8 @@ function makePrimeProblem(finalWin) {
   do {
     const set = rand() < 0.5 ? primes : comps;   // ~50/50 so both answers stay live
     n = set[Math.floor(rand() * set.length)];
-  } while (n === round.lastPrimeN && guard++ < 12);
-  round.lastPrimeN = n;
+  } while (recentHas('pr:' + n, easy ? 2 : 8) && guard++ < 16);
+  remember('pr:' + n);
   return { kind: 'prime', n, isPrime: isPrimeNum(n), tries: 0, locked: false, finalWin };
 }
 
@@ -709,7 +743,7 @@ function choosePrime(saysPrime, btn) {
       commitWrongReveal(p);
       showContinue();
     } else {
-      hint.textContent = 'נסי שוב — חשבי אם אפשר לסדר אותו במלבן';
+      hint.textContent = 'אופס, נסי שוב 🙂';
     }
   }
 }
@@ -768,11 +802,14 @@ function fracOptions(p) {
 function makeFractionProblem(finalWin) {
   const easy = finalWin || round.index === 0;
   const types = ['addSame', 'subSame', 'mul', 'addUnlike', 'subUnlike'];
-  const subtype = easy ? 'addSame' : types[Math.floor(rand() * types.length)];
-  const p = buildFrac(subtype, easy);
-  const key = `${p.o1.n}/${p.o1.d}${p.op}${p.o2.n}/${p.o2.d}`;
-  if (key === round.lastFracKey && !easy) return makeFractionProblem(finalWin);
-  round.lastFracKey = key;
+  let p, key;
+  for (let t = 0; t < 20; t++) {
+    const subtype = easy ? 'addSame' : types[Math.floor(rand() * types.length)];
+    p = buildFrac(subtype, easy);
+    key = `fr:${p.o1.n}/${p.o1.d}${p.op}${p.o2.n}/${p.o2.d}`;
+    if (easy || t === 19 || !recentHas(key, 6)) break;
+  }
+  remember(key);
   p.kind = 'frac'; p.tries = 0; p.locked = false; p.finalWin = finalWin;
   p.options = fracOptions(p);
   return p;
@@ -909,19 +946,18 @@ function shapeSVG(pts, size, fill) {
 
 function makeShapeProblem(finalWin) {
   const subtype = finalWin ? 'name' : ['name', 'name', 'rule', 'build'][Math.floor(rand() * 4)];
-  const avoid = round.lastShapeKey;
   const pick = (keys) => {
     let k, guard = 0;
-    do { k = keys[Math.floor(rand() * keys.length)]; } while (k === avoid && keys.length > 1 && guard++ < 12);
+    do { k = keys[Math.floor(rand() * keys.length)]; } while (recentHas('sh:' + k, 3) && keys.length > 3 && guard++ < 16);
     return k;
   };
   if (subtype === 'build') {
     const key = pick(BUILD_KEYS);
-    round.lastShapeKey = key;
+    remember('sh:' + key);
     return { kind: 'shapes', subtype, key, corners: [], N: 5, need: 4, tries: 0, locked: false, finalWin };
   }
   const key = pick(SHAPE_KEYS);
-  round.lastShapeKey = key;
+  remember('sh:' + key);
   const others = shuffleInPlace(SHAPE_KEYS.filter((k) => k !== key)).slice(0, 3);
   const optionKeys = shuffleInPlace([key, ...others]);
   return { kind: 'shapes', subtype, key, optionKeys, tries: 0, locked: false, finalWin };
@@ -1161,13 +1197,15 @@ function makeTriangleProblem(finalWin) {
   const subtype = finalWin ? 'sideName' : ['sideName', 'angleName', 'rule', 'anglefact', 'build'][Math.floor(rand() * 5)];
   if (subtype === 'build') {
     let key, guard = 0;
-    do { key = TRI_BUILD_KEYS[Math.floor(rand() * TRI_BUILD_KEYS.length)]; } while (key === round.lastShapeKey && guard++ < 8);
-    round.lastShapeKey = key;
+    do { key = TRI_BUILD_KEYS[Math.floor(rand() * TRI_BUILD_KEYS.length)]; } while (recentHas('tr:build:' + key, 2) && guard++ < 12);
+    remember('tr:build:' + key);
     return { kind: 'tri', subtype, target: key, corners: [], N: 5, need: 3, tries: 0, locked: false, finalWin };
   }
   if (subtype === 'anglefact') {
-    let a, b;
-    do { a = 20 + Math.floor(rand() * 9) * 10; b = 20 + Math.floor(rand() * 9) * 10; } while (a + b >= 170 || a + b < 40);
+    let a, b, tg = 0;
+    do { a = 20 + Math.floor(rand() * 9) * 10; b = 20 + Math.floor(rand() * 9) * 10; }
+    while ((a + b >= 170 || a + b < 40 || recentHas('tr:af:' + Math.min(a, b) + '-' + Math.max(a, b), 6)) && tg++ < 40);
+    remember('tr:af:' + Math.min(a, b) + '-' + Math.max(a, b));
     const answer = 180 - a - b;
     const opts = new Set([answer]);
     let guard = 0;
@@ -1177,7 +1215,9 @@ function makeTriangleProblem(finalWin) {
   const set = subtype === 'angleName' ? TRI_ANGLES : (subtype === 'rule' ? (rand() < 0.5 ? TRI_SIDES : TRI_ANGLES) : TRI_SIDES);
   const setName = set === TRI_ANGLES ? 'angles' : 'sides';
   const keys = Object.keys(set);
-  const key = keys[Math.floor(rand() * keys.length)];
+  let key, g = 0;
+  do { key = keys[Math.floor(rand() * keys.length)]; } while (recentHas('tr:' + setName + ':' + key, 2) && g++ < 12);
+  remember('tr:' + setName + ':' + key);
   return { kind: 'tri', subtype, set, setName, key, tries: 0, locked: false, finalWin };
 }
 

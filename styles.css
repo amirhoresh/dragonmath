@@ -236,6 +236,12 @@ html, body {
 }
 .dot-row:nth-child(odd) .dot { background: var(--pink); }
 .dot-row.counted .dot { background: var(--coral); }
+/* paint-to-count: dots start faint/empty, fill in when she taps the row */
+.paint-btn { font-size: clamp(18px, 3vh, 24px); }
+.dot-row.paintable .dot,
+.dot-row.paintable:nth-child(odd) .dot { background: #e4dcfb; box-shadow: 0 3px 0 rgba(42,33,80,.08); }
+.dot-row.paintable.counted .dot,
+.dot-row.paintable.counted:nth-child(odd) .dot { background: var(--coral); box-shadow: 0 3px 0 rgba(42,33,80,.18); }
 .row-tag {
   align-self: center; margin-left: 8px; font-weight: 800; font-size: 16px;
   line-height: 1; color: var(--purple); min-width: 28px;
