@@ -289,7 +289,10 @@ html, body {
 .fld input:focus { outline: none; border-color: var(--purple); }
 .settings-actions { display: flex; gap: 10px; }
 .settings-actions .btn { flex: 1; min-height: 52px; }
-.setup-help { font-size: clamp(12px, 1.9vh, 14px); opacity: .7; line-height: 1.4; }
+.setup-help { font-size: clamp(12px, 1.9vh, 14px); opacity: .85; line-height: 1.45; }
+.setup-help ol { margin: 8px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.setup-help a { color: var(--purple); font-weight: 700; }
+.setup-help code { background: #efe9fc; border-radius: 5px; padding: 1px 5px; font-size: .92em; }
 
 /* ---------- fx layer (confetti / flying stars) ---------- */
 .fx { position: fixed; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }

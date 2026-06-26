@@ -448,7 +448,16 @@ function renderSettings() {
           <button class="btn btn--ghost" id="test">Send test</button>
         </div>
         <div class="hint" id="shint"></div>
-        <p class="setup-help">Set up the free Google Apps Script once (see <b>parent-sync/README</b> in the repo), paste its URL above, and DragonMath will email you a weekly review and alert you after 3 idle days. Nothing else leaves the device.</p>
+        <div class="setup-help">
+          <b>To get the emails — one-time setup (~10 min):</b>
+          <ol>
+            <li><a href="https://script.google.com" target="_blank" rel="noopener">Open Google Apps Script</a> → <i>New project</i>.</li>
+            <li><a href="https://raw.githubusercontent.com/amirhoresh/dragonmath/master/parent-sync/Code.gs" target="_blank" rel="noopener">Copy the script code</a> → paste it in, set your email near the top.</li>
+            <li><i>Run ▸ setup</i> (approve the prompts) → <i>Deploy ▸ New deployment ▸ Web app</i> (Execute as <b>Me</b>, access <b>Anyone</b>) → copy the <code>…/exec</code> URL.</li>
+            <li>Paste that URL above → <b>Save</b> → <b>Send test</b>. A test email should arrive in a minute.</li>
+          </ol>
+          Then you'll get a weekly review + an alert after 3 idle days. Nothing else leaves the device.
+        </div>
       </div>
     </div>
   `);
