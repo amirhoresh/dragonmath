@@ -264,6 +264,33 @@ html, body {
 .earned .star { color: var(--sun); }
 .cooldown { font-size: 18px; opacity: .75; }
 
+/* ---------- idle nudge + parent area ---------- */
+#settings { margin-left: auto; }
+.idle-banner { background: #fff3cf; color: #7a5a00; border-radius: 16px; padding: 8px 14px; font-weight: 800; font-size: clamp(14px, 2.4vh, 18px); text-align: center; }
+.settings { flex: 1; min-height: 0; display: flex; flex-direction: column; direction: ltr; text-align: left; }
+.settings .topbar { margin-bottom: 6px; }
+.settings-title { font-size: clamp(22px, 4vh, 30px); }
+.parent-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: clamp(10px, 2vh, 16px); padding-bottom: 8px; }
+.stat-card { background: #fff; border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+.stat-card h3 { margin: 0 0 8px; color: var(--purple); font-size: clamp(16px, 2.6vh, 20px); }
+.stat-row { font-size: clamp(15px, 2.4vh, 18px); }
+.stat-row b { color: var(--purple); }
+.stat-row .star { color: var(--sun); }
+.stat-sub { margin-top: 6px; font-size: clamp(13px, 2vh, 16px); opacity: .8; }
+.stat-sub.warn { color: #c0392b; opacity: 1; font-weight: 800; }
+.struggle { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.struggle li { display: flex; justify-content: space-between; gap: 10px; font-size: clamp(13px, 2.1vh, 16px); }
+.struggle li span:first-child { font-weight: 800; }
+.struggle li span:last-child { opacity: .75; text-align: right; }
+.weak-facts { margin-top: 10px; font-size: clamp(13px, 2.1vh, 16px); font-weight: 700; color: var(--coral); }
+.muted { opacity: .65; }
+.fld { display: flex; flex-direction: column; gap: 6px; font-weight: 700; color: var(--purple); font-size: clamp(13px, 2.1vh, 16px); }
+.fld input { font: inherit; font-size: 16px; padding: 12px 14px; border: 2px solid #e0d8fb; border-radius: 14px; background: #fff; color: #2a2150; }
+.fld input:focus { outline: none; border-color: var(--purple); }
+.settings-actions { display: flex; gap: 10px; }
+.settings-actions .btn { flex: 1; min-height: 52px; }
+.setup-help { font-size: clamp(12px, 1.9vh, 14px); opacity: .7; line-height: 1.4; }
+
 /* ---------- fx layer (confetti / flying stars) ---------- */
 .fx { position: fixed; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }
 .confetti { position: absolute; width: 12px; height: 12px; border-radius: 3px; will-change: transform, opacity; }

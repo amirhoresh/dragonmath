@@ -10,9 +10,15 @@ const SAVE_KEY = 'dragonmath.save.v1';
 
 const defaultSave = () => ({
   stars: 0,            // lifetime stars -> dragon growth
-  mastery: {},         // "a x b" -> {seen, correct}
+  mastery: {},         // "a x b" -> {seen, correct(first-try), wrong(total mistakes)}
   lastPlayed: 0,
   muted: false,        // sound on/off
+  days: {},            // "YYYY-MM-DD" -> {a:answered, c:first-try-correct, s:stars, m:mistakes}
+  topics: {},          // mode -> {q:questions, ft:first-try, miss:total mistakes, solved:eventually-right}
+  lastActivityTs: 0,   // when she last answered a question
+  syncUrl: '',         // parent's Google Apps Script URL (optional)
+  childName: '',       // optional, for the parent email
+  lastSync: 0,
 });
 
 function load() {
@@ -27,6 +33,99 @@ function save(s) {
 }
 
 let state = load();
+
+// ---------- progress tracking + parent sync ----------
+const TOPIC_LABEL = {
+  count: 'Multiplication', pop: 'Speed (Bubble Pop)', division: 'Division',
+  primes: 'Primes', shapes: 'Shapes', triangles: 'Triangles', fractions: 'Fractions',
+};
+function todayKey(d = new Date()) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function dayBucket() {
+  const k = todayKey();
+  return state.days[k] || (state.days[k] = { a: 0, c: 0, s: 0, m: 0 });
+}
+function pruneDays() {
+  const keys = Object.keys(state.days).sort();
+  while (keys.length > 60) delete state.days[keys.shift()];
+}
+// one question answered: correct = got it right eventually, tries = wrong attempts before that
+function recordActivity(correct, tries) {
+  const d = dayBucket();
+  d.a++; if (correct) d.c++; d.m += tries;
+  state.lastActivityTs = Date.now();
+  pruneDays();
+  save(state);
+}
+function recordTopic(mode, tries, solved) {
+  const t = state.topics[mode] || (state.topics[mode] = { q: 0, ft: 0, miss: 0, solved: 0 });
+  t.q++; t.miss += tries; if (solved) t.solved++; if (solved && tries === 0) t.ft++;
+}
+function weekStats() {
+  const now = new Date();
+  let answered = 0, correct = 0, stars = 0, mistakes = 0, daysPracticed = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now); d.setDate(now.getDate() - i);
+    const b = state.days[todayKey(d)];
+    if (b) { answered += b.a; correct += b.c; stars += b.s; mistakes += b.m; if (b.a > 0) daysPracticed++; }
+  }
+  return { answered, correct, stars, mistakes, daysPracticed, accuracy: answered ? Math.round(correct / answered * 100) : 0 };
+}
+function daysIdle() {
+  if (!state.lastActivityTs) return null;
+  return Math.floor((Date.now() - state.lastActivityTs) / 86400000);
+}
+// facts she struggles with most: low first-try accuracy and/or many mistakes
+function weakestFacts(n) {
+  const arr = [];
+  for (const k in state.mastery) {
+    const m = state.mastery[k];
+    if (m.seen >= 3) arr.push({ fact: k.replace('x', '×'), acc: Math.round((m.correct / m.seen) * 100), miss: m.wrong || 0, seen: m.seen });
+  }
+  arr.sort((x, y) => (x.acc - y.acc) || (y.miss - x.miss));
+  return arr.slice(0, n || 6);
+}
+// topics ranked by how much she fumbles them (mistakes per question)
+function topicStruggle() {
+  const out = [];
+  for (const k in state.topics) {
+    const t = state.topics[k];
+    if (t.q >= 3) out.push({
+      topic: TOPIC_LABEL[k] || k, q: t.q,
+      missPerQ: +(t.miss / t.q).toFixed(2),
+      firstTry: Math.round(t.ft / t.q * 100),
+      solved: Math.round(t.solved / t.q * 100),
+    });
+  }
+  out.sort((a, b) => b.missPerQ - a.missPerQ);
+  return out;
+}
+function buildPayload() {
+  return {
+    app: 'dragonmath', childName: state.childName || '',
+    lastActivityTs: state.lastActivityTs || 0, sentAt: Date.now(),
+    stars: state.stars, stage: STAGES[stageIndex(state.stars)].name,
+    days: state.days, week: weekStats(),
+    weakest: weakestFacts(8), struggle: topicStruggle(),
+  };
+}
+function syncNow(force, isTest) {
+  if (!state.syncUrl || !navigator.onLine) return false;
+  if (!force && Date.now() - (state.lastSync || 0) < 30000) return false;
+  try {
+    const payload = buildPayload();
+    if (isTest) payload.test = true;
+    fetch(state.syncUrl, {
+      method: 'POST', mode: 'no-cors', keepalive: true,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    state.lastSync = Date.now(); save(state);
+    return true;
+  } catch { return false; }
+}
+function escAttr(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
 // ---------- sound (WebAudio synth — no audio files, stays offline) ----------
 const audio = {
@@ -145,10 +244,10 @@ function pickFact(trivial) {
 let _seed = (Date.now() >>> 0) || 12345;
 function rand() { _seed = (_seed * 1664525 + 1013904223) >>> 0; return _seed / 4294967296; }
 
-function recordAttempt(a, b, correct) {
+function recordAttempt(a, b, correct, tries) {
   const k = factKey(a, b);
-  const m = state.mastery[k] || { seen: 0, correct: 0 };
-  m.seen++; if (correct) m.correct++;
+  const m = state.mastery[k] || { seen: 0, correct: 0, wrong: 0 };
+  m.seen++; if (correct) m.correct++; m.wrong = (m.wrong || 0) + (tries || 0);
   state.mastery[k] = m;
 }
 
@@ -243,6 +342,7 @@ function awardStars(n, fromEl) {
   const before = stageIndex(state.stars);
   round.starsEarned += n;
   state.stars += n;
+  dayBucket().s += n;
   save(state);
   flyStars(n, fromEl);
   if (stageIndex(state.stars) > before) audio.grow(); // dragon leveled up
@@ -259,13 +359,16 @@ function renderHome() {
   round = null;
   const si = stageIndex(state.stars);
   const prog = Math.round(stageProgress(state.stars) * 100);
+  const idle = daysIdle();
   app.innerHTML = '';
   const home = el(`
     <div class="home">
       <div class="topbar">
         <h1 class="title">Dragon<b>Math</b></h1>
+        <button class="mute" id="settings" aria-label="Parent area">⚙️</button>
         <button class="mute" id="mute" aria-label="${state.muted ? 'Unmute' : 'Mute'}">${state.muted ? '🔇' : '🔊'}</button>
       </div>
+      ${idle !== null && idle > 3 ? `<div class="idle-banner">🐉 הדרקון מתגעגע! לא שיחקת כבר ${idle} ימים</div>` : ''}
       <div class="dragon-wrap">
         ${dragonSVG(si)}
         <div class="dragon-name">${STAGES[si].name}</div>
@@ -299,6 +402,73 @@ function renderHome() {
     e.target.textContent = state.muted ? '🔇' : '🔊';
     e.target.setAttribute('aria-label', state.muted ? 'Unmute' : 'Mute');
     if (!state.muted) { audio.ensure(); audio.pop(); }
+  };
+  home.querySelector('#settings').onclick = () => renderSettings();
+  syncNow(false);   // opportunistic push when the app is opened (if a URL is set)
+}
+
+// ---------- parent area (progress + sync setup) ----------
+function renderSettings() {
+  round = null;
+  const w = weekStats();
+  const idle = daysIdle();
+  const struggle = topicStruggle();
+  const weak = weakestFacts(6);
+  const idleText = idle === null ? 'No practice yet'
+    : idle === 0 ? 'Practiced today 🎉'
+    : `${idle} day${idle === 1 ? '' : 's'} since last practice`;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="settings">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="Back">‹</button>
+        <h2 class="title settings-title">Parent area</h2>
+      </div>
+      <div class="parent-scroll">
+        <div class="stat-card">
+          <h3>This week</h3>
+          <div class="stat-row"><b>${w.daysPracticed}/7</b> days · <b>${w.answered}</b> questions · <b>${w.accuracy}%</b> first-try · <span class="star">★</span> ${w.stars}</div>
+          <div class="stat-sub ${idle !== null && idle > 3 ? 'warn' : ''}">${idleText} · ${w.mistakes} slip-ups this week</div>
+        </div>
+        <div class="stat-card">
+          <h3>Where she struggles most</h3>
+          ${struggle.length ? '<ul class="struggle">' + struggle.slice(0, 5).map((t) =>
+            `<li><span>${t.topic}</span><span>${t.missPerQ} slips/question · ${t.firstTry}% first-try</span></li>`).join('') + '</ul>'
+            : '<p class="muted">Not enough data yet — play a few rounds.</p>'}
+          ${weak.length ? '<div class="weak-facts">Hardest facts: ' + weak.map((f) => `${f.fact}`).join(', ') + '</div>' : ''}
+        </div>
+        <label class="fld">Child's name (optional)
+          <input id="child" type="text" value="${escAttr(state.childName)}" placeholder="e.g. Maya" />
+        </label>
+        <label class="fld">Parent sync URL — for the weekly email + 3-day idle alert
+          <input id="syncurl" type="url" value="${escAttr(state.syncUrl)}" placeholder="https://script.google.com/macros/s/…/exec" inputmode="url" />
+        </label>
+        <div class="settings-actions">
+          <button class="btn btn--teal" id="save">Save</button>
+          <button class="btn btn--ghost" id="test">Send test</button>
+        </div>
+        <div class="hint" id="shint"></div>
+        <p class="setup-help">Set up the free Google Apps Script once (see <b>parent-sync/README</b> in the repo), paste its URL above, and DragonMath will email you a weekly review and alert you after 3 idle days. Nothing else leaves the device.</p>
+      </div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderHome();
+  view.querySelector('#save').onclick = () => {
+    state.childName = view.querySelector('#child').value.trim().slice(0, 40);
+    state.syncUrl = view.querySelector('#syncurl').value.trim();
+    save(state);
+    view.querySelector('#shint').textContent = 'Saved ✓';
+  };
+  view.querySelector('#test').onclick = () => {
+    state.childName = view.querySelector('#child').value.trim().slice(0, 40);
+    state.syncUrl = view.querySelector('#syncurl').value.trim();
+    save(state);
+    const shint = view.querySelector('#shint');
+    if (!state.syncUrl) { shint.textContent = 'Paste your sync URL first.'; return; }
+    if (!navigator.onLine) { shint.textContent = 'You are offline — connect and try again.'; return; }
+    syncNow(true, true);
+    shint.textContent = 'Test sent ✓ — check your email in a minute.';
   };
 }
 
@@ -422,7 +592,9 @@ function renderBuildCount() {
 // shared scoring — used by both Build & Count and Bubble Pop
 function commitCorrect(p, fromEl) {
   p.locked = true;
-  if (p.a && p.b) recordAttempt(p.a, p.b, p.tries === 0);
+  if (p.a && p.b) recordAttempt(p.a, p.b, p.tries === 0, p.tries);
+  recordActivity(p.tries === 0, p.tries);   // day.c counts first-try-correct
+  recordTopic(round.mode, p.tries, true);
   round.correctCount++;
   round.wrongStreak = 0;
   round.combo = p.tries === 0 ? round.combo + 1 : 0;
@@ -434,7 +606,9 @@ function commitCorrect(p, fromEl) {
 }
 function commitWrongReveal(p) {
   p.locked = true;
-  if (p.a && p.b) recordAttempt(p.a, p.b, false);
+  if (p.a && p.b) recordAttempt(p.a, p.b, false, p.tries);
+  recordActivity(false, p.tries);
+  recordTopic(round.mode, p.tries, false);
   round.wrongStreak++;
   round.combo = 0;
   round.index++;
@@ -1385,6 +1559,7 @@ function endRound() {
   const si = stageIndex(state.stars);
   state.lastPlayed = Date.now();
   save(state);
+  syncNow(true);   // push fresh progress to the parent's sync URL (if set)
   app.innerHTML = '';
   const end = el(`
     <div class="end">
