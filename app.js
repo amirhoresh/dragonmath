@@ -1170,10 +1170,17 @@ function startTables(level) {
 
 function renderTablesStart() {
   const t = tables;
+  const maxSel = Math.min(state.tablesLevel || 1, MAX_TABLES_LEVEL);  // levels she's unlocked
+  const canEasier = t.level > 1;
+  const canHarder = t.level < maxSel;
   app.innerHTML = '';
   const view = el(`
     <div class="tables-start">
-      <div class="tl-badge">שלב ${t.level}</div>
+      <div class="tl-nav">
+        <button class="btn btn--ghost tl-step" id="easier" ${canEasier ? '' : 'disabled'}>קל יותר</button>
+        <div class="tl-badge">שלב ${t.level}</div>
+        <button class="btn btn--ghost tl-step" id="harder" ${canHarder ? '' : 'disabled'}>קשה יותר</button>
+      </div>
       <p class="tl-sub">${t.queue.length} שאלות · ${t.perQ} שניות לכל אחת</p>
       ${t.earns
         ? `<p class="tl-tip">כל תשובה נכונה = ${tablesStarsPerCorrect(t.level)} ⭐ לספארקי</p>`
@@ -1184,6 +1191,8 @@ function renderTablesStart() {
     </div>
   `);
   app.appendChild(view);
+  if (canEasier) view.querySelector('#easier').onclick = () => startTables(t.level - 1);
+  if (canHarder) view.querySelector('#harder').onclick = () => startTables(t.level + 1);
   view.querySelector('#go').onclick = () => { tables.locked = false; renderTablesQuestion(); };
   view.querySelector('#home').onclick = () => renderHome();
 }

@@ -1,6 +1,6 @@
 /* DragonMath service worker — network-first so updates always reach the device
    when online, with a cached app shell as offline fallback. */
-const CACHE = 'dragonmath-v15';
+const CACHE = 'dragonmath-v16';
 const ASSETS = [
   './',
   './index.html',
