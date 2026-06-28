@@ -1135,8 +1135,9 @@ function chooseFrac(o, btn) {
 // is timed (10s at L1, −1s per level, floor 4s). +1 point right, −1 wrong/timeout.
 // Correct answers convert to dragon stars at the end of the level.
 let tables = null;
-function tablesTime(level) { return Math.max(4, 11 - level); }
-const TABLES_STARS_PER_CORRECT = 2;
+const MAX_TABLES_LEVEL = 4;                                         // L4 = 4s = hardest
+function tablesTime(level) { return Math.max(4, 12 - 2 * level); }  // 10, 8, 6, 4
+function tablesStarsPerCorrect(level) { return 1 + Math.min(level, MAX_TABLES_LEVEL); } // 2…5, more when harder
 
 function generateTablesLevel() {
   // all 55 distinct facts (canonical a≤b → no commutative repeats), then take 15,
@@ -1159,7 +1160,10 @@ function generateTablesLevel() {
 function startTables(level) {
   audio.ensure();
   round = null;
-  tables = { level, perQ: tablesTime(level), queue: generateTablesLevel(),
+  level = Math.min(Math.max(1, level), MAX_TABLES_LEVEL);
+  // a run earns stars only if it's her frontier level (first clear) or the hardest level
+  const earns = (level === MAX_TABLES_LEVEL) || (level >= (state.tablesLevel || 1));
+  tables = { level, perQ: tablesTime(level), earns, queue: generateTablesLevel(),
     i: 0, correct: 0, wrong: 0, points: 0, locked: true, raf: 0, deadline: 0 };
   renderTablesStart();
 }
@@ -1171,6 +1175,9 @@ function renderTablesStart() {
     <div class="tables-start">
       <div class="tl-badge">שלב ${t.level}</div>
       <p class="tl-sub">${t.queue.length} שאלות · ${t.perQ} שניות לכל אחת</p>
+      ${t.earns
+        ? `<p class="tl-tip">כל תשובה נכונה = ${tablesStarsPerCorrect(t.level)} ⭐ לספארקי</p>`
+        : `<p class="tl-practice">מצב אימון — בשלב הזה לא נצברים כוכבים.<br>עברי לשלב הבא כדי לצבור! ⭐</p>`}
       <p class="tl-tip">תעני מהר ככל שאפשר — בכל שלב הזמן מתקצר!</p>
       <button class="btn btn--big btn--teal" id="go">התחלה ▶</button>
       <button class="btn btn--ghost" id="home">בית</button>
@@ -1224,7 +1231,7 @@ function tablesStopTimer() { if (tables && tables.raf) cancelAnimationFrame(tabl
 
 function tablesScore(correct) {
   const t = tables;
-  if (correct) { t.correct++; t.points++; } else { t.wrong++; t.points--; }
+  if (correct) { t.correct++; t.points++; } else { t.wrong++; t.points = Math.max(0, t.points - 1); }
   recordActivity(correct, correct ? 0 : 1);
   recordTopic('tables', correct ? 0 : 1, correct);
   recordAttempt(t.a, t.b, correct, correct ? 0 : 1);
@@ -1272,32 +1279,38 @@ function tablesAdvance() {
 
 function endTablesLevel() {
   const t = tables;
-  const stars = t.correct * TABLES_STARS_PER_CORRECT;
+  const lvl = t.level, total = t.queue.length, correct = t.correct, points = t.points;
+  const stars = t.earns ? correct * tablesStarsPerCorrect(lvl) : 0;
   const before = stageIndex(state.stars);
-  state.stars += stars; dayBucket().s += stars;
-  state.tablesLevel = Math.max(state.tablesLevel || 1, t.level + 1);
+  if (stars > 0) { state.stars += stars; dayBucket().s += stars; }
+  if (t.earns && lvl < MAX_TABLES_LEVEL) state.tablesLevel = Math.max(state.tablesLevel || 1, lvl + 1);
   state.lastPlayed = Date.now();
   save(state);
   syncNow(true);
   const grew = stageIndex(state.stars) > before;
   const si = stageIndex(state.stars);
-  const lvl = t.level, total = t.queue.length, correct = t.correct, points = t.points;
+  const canAdvance = lvl < MAX_TABLES_LEVEL;
   app.innerHTML = '';
   const view = el(`
     <div class="end">
       <h2>שלב ${lvl} הושלם! 🎉</h2>
       <div class="dragon-wrap">${dragonSVG(si)}<div class="dragon-name">${PET}${grew ? ' גדל! 🎉' : ''}</div></div>
       <div class="earned">${correct}/${total} נכון · ${points} נק׳</div>
-      <div class="earned">צברת <span class="star">★</span> ${stars}</div>
-      <button class="btn btn--big btn--teal" id="next">שלב ${lvl + 1} → מהר יותר!</button>
+      <div class="earned">${t.earns ? `צברת <span class="star">★</span> ${stars}` : 'מצב אימון — בלי כוכבים ⭐'}</div>
+      ${canAdvance
+        ? `<button class="btn btn--big btn--teal" id="next">שלב ${lvl + 1} — מהר יותר! →</button>
+           <button class="btn btn--big btn--ghost" id="stay">להישאר בשלב ${lvl} (אימון, בלי כוכבים)</button>`
+        : `<button class="btn btn--big btn--teal" id="stay">עוד פעם — השלב הכי קשה! 🔥</button>`}
       <button class="btn btn--big btn--ghost" id="home">בית</button>
     </div>
   `);
   app.appendChild(view);
   if (grew) audio.grow();
   confetti(40);
-  flyStars(Math.min(stars, 6), view.querySelector('.star'));
-  view.querySelector('#next').onclick = () => startTables(lvl + 1);
+  if (stars > 0) flyStars(Math.min(stars, 6), view.querySelector('.star'));
+  const nextBtn = view.querySelector('#next');
+  if (nextBtn) nextBtn.onclick = () => startTables(lvl + 1);
+  view.querySelector('#stay').onclick = () => startTables(lvl);
   view.querySelector('#home').onclick = () => renderHome();
 }
 
