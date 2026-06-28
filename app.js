@@ -481,6 +481,10 @@ function renderSettings() {
           <button class="btn btn--ghost" id="test">Send test</button>
         </div>
         <div class="hint" id="shint"></div>
+        <div class="settings-actions" style="margin-top:24px;border-top:1px solid #ece4ff;padding-top:16px">
+          <button class="btn btn--danger" id="resetAll">Reset all progress</button>
+        </div>
+        <div class="hint" id="rhint"></div>
         <div class="setup-help">
           <b>To get the emails — one-time setup (~10 min):</b>
           <ol>
@@ -501,6 +505,21 @@ function renderSettings() {
     state.syncUrl = view.querySelector('#syncurl').value.trim();
     save(state);
     view.querySelector('#shint').textContent = 'Saved ✓';
+  };
+  view.querySelector('#resetAll').onclick = () => {
+    const rhint = view.querySelector('#rhint');
+    if (rhint.dataset.confirm !== '1') {
+      rhint.textContent = 'Are you sure? Tap again to erase everything.';
+      rhint.dataset.confirm = '1';
+      return;
+    }
+    const syncUrl = state.syncUrl;
+    const childName = state.childName;
+    state = defaultSave();
+    state.syncUrl = syncUrl;
+    state.childName = childName;
+    save(state);
+    renderHome();
   };
   view.querySelector('#test').onclick = () => {
     state.childName = view.querySelector('#child').value.trim().slice(0, 40);

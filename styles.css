@@ -76,6 +76,7 @@ html, body {
 .btn--teal { background: var(--teal); }
 .btn--coral { background: var(--coral); }
 .btn--ghost { background: #fff; color: var(--purple); }
+.btn--danger { background: #fff; color: #c0392b; border: 2px solid #e8b4b0; }
 
 .topbar {
   display: flex;
