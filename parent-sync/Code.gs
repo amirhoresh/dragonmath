@@ -1,39 +1,30 @@
 /**
  * DragonMath — parent progress sync (Google Apps Script).
  *
- * What it does:
- *   • Receives a tiny progress snapshot from the DragonMath app (doPost).
- *   • Emails you a WEEKLY review (days practiced, accuracy, struggles, hardest facts).
+ *   • Receives a progress snapshot from the app (doPost).
+ *   • Emails you a WEEKLY review (HTML): how much she used it, what to practice
+ *     more, and which games she has never tried.
  *   • Emails you an ALERT if she hasn't practiced for more than IDLE_DAYS days.
  *
- * The data only ever goes to YOUR Google account. No third party.
+ * The data only ever goes to YOUR Google account.
  *
- * ONE-TIME SETUP (see parent-sync/README.md for screenshots-level detail):
- *   1. Go to https://script.google.com  →  New project.
- *   2. Delete the sample code, paste THIS whole file.
- *   3. Edit PARENT_EMAIL below to your address.
- *   4. Run the function `setup` once (Run ▸ setup) and approve the permissions.
- *   5. Deploy ▸ New deployment ▸ type "Web app":
- *        - Execute as: Me
- *        - Who has access: Anyone
- *      Copy the Web app URL (ends with /exec).
- *   6. Paste that URL into DragonMath → ⚙️ Parent area → "Parent sync URL" → Save.
- *   7. Tap "Send test" in the app — you should get a test email within a minute.
+ * SETUP: see parent-sync/README.md. In short: paste this whole file into a new
+ * https://script.google.com project, set PARENT_EMAIL, Run ▸ setup (approve),
+ * Deploy ▸ Web app (Execute as Me, access Anyone), paste the /exec URL into the
+ * game's ⚙️ Parent area. If you already set it up, re-paste this file, Save, and
+ * redeploy (Manage deployments ▸ Edit ▸ New version) to get the new HTML email.
  */
 
-var PARENT_EMAIL = 'amir.horesh@gmail.com'; // <-- change to your email
+var PARENT_EMAIL = 'amir.horesh@gmail.com'; // <-- your email
 var IDLE_DAYS = 3;
 
-// ---- receive a snapshot from the app ----
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
     data.receivedAt = Date.now();
     PropertiesService.getScriptProperties().setProperty('latest', JSON.stringify(data));
     if (data.test) sendWeekly_(data, '🐉 DragonMath — test email (setup works!)');
-  } catch (err) {
-    // ignore malformed posts
-  }
+  } catch (err) { /* ignore malformed posts */ }
   return ContentService.createTextOutput('ok');
 }
 
@@ -42,74 +33,96 @@ function getLatest_() {
   return s ? JSON.parse(s) : null;
 }
 
-// ---- weekly review (runs every Sunday morning) ----
 function weeklyReview() {
   var d = getLatest_();
   if (d) sendWeekly_(d, '🐉 DragonMath — weekly review');
 }
 
-// ---- idle alert (runs daily) ----
 function idleCheck() {
   var d = getLatest_();
   if (!d || !d.lastActivityTs) return;
   var idleDays = Math.floor((Date.now() - d.lastActivityTs) / 86400000);
   if (idleDays <= IDLE_DAYS) return;
-  // only alert once per idle stretch (until she practices again)
   var props = PropertiesService.getScriptProperties();
-  if (props.getProperty('alertedFor') === String(d.lastActivityTs)) return;
+  if (props.getProperty('alertedFor') === String(d.lastActivityTs)) return; // once per idle stretch
   props.setProperty('alertedFor', String(d.lastActivityTs));
-  var who = d.childName || 'your child';
-  MailApp.sendEmail(PARENT_EMAIL,
-    '⚠️ DragonMath — ' + idleDays + ' days without practice',
-    who + " hasn't practiced DragonMath in " + idleDays + ' days.\n\nA gentle nudge might help. 🐉');
+  var who = d.childName || 'Your child';
+  MailApp.sendEmail({ to: PARENT_EMAIL,
+    subject: '⚠️ DragonMath — ' + idleDays + ' days without practice',
+    htmlBody: '<div style="font-family:Arial,sans-serif;color:#2a2150">' +
+      '<h2 style="color:#c0392b">⏰ ' + esc_(who) + " hasn't practiced in " + idleDays + ' days</h2>' +
+      '<p>A gentle nudge might help. 🐉</p></div>' });
 }
 
-// ---- build + send the review email ----
+// ---------- HTML weekly email: usage / practice-more / never-tried ----------
 function sendWeekly_(d, subject) {
-  var w = d.week || {};
   var who = d.childName || 'Your child';
-  var lines = [];
-  lines.push(who + "'s DragonMath — last 7 days");
-  lines.push('');
-  lines.push('Practiced: ' + (w.daysPracticed || 0) + ' of 7 days');
-  lines.push('Questions: ' + (w.answered || 0) + '   First-try correct: ' + (w.accuracy || 0) + '%');
-  lines.push('Slip-ups (wrong taps): ' + (w.mistakes || 0) + '   Stars earned: ' + (w.stars || 0));
-  lines.push('Dragon: ' + (d.stage || '—'));
+  var w = d.week || {};
+  var totals = d.totals || {};
+  var idle = d.lastActivityTs ? Math.floor((Date.now() - d.lastActivityTs) / 86400000) : null;
+  var lastTxt = idle === null ? 'never' : (idle === 0 ? 'today' : idle + ' day(s) ago');
 
-  if (d.lastActivityTs) {
-    var idle = Math.floor((Date.now() - d.lastActivityTs) / 86400000);
-    lines.push('Last practice: ' + (idle === 0 ? 'today' : idle + ' day(s) ago'));
-  }
+  // 1) usage
+  var usage = '<table style="width:100%;border-collapse:collapse;font-size:14px">' +
+    row_('This week', (w.daysPracticed || 0) + ' of 7 days · ' + (w.answered || 0) + ' questions · ' + (w.accuracy || 0) + '% first-try') +
+    row_('All-time', (totals.daysPracticed || 0) + ' days · ' + (totals.questions || 0) + ' questions') +
+    row_('Last practice', lastTxt) +
+    row_('Sparky', d.stage || '—') +
+    '</table>';
 
+  // 2) practice more
+  var pm = '';
   if (d.struggle && d.struggle.length) {
-    lines.push('');
-    lines.push('Where she struggles most (slips per question):');
+    pm += '<table style="width:100%;border-collapse:collapse;font-size:14px">' +
+      '<tr style="color:#888"><td>Topic</td><td align="center">slips/Q</td><td align="center">first-try</td></tr>';
     d.struggle.forEach(function (t) {
-      lines.push('  • ' + t.topic + ' — ' + t.missPerQ + ' slips/q, ' + t.firstTry + '% first-try (' + t.q + ' questions)');
+      pm += '<tr><td style="padding:3px 0;font-weight:bold">' + esc_(t.topic) + '</td>' +
+        '<td align="center">' + t.missPerQ + '</td><td align="center">' + t.firstTry + '%</td></tr>';
     });
+    pm += '</table>';
+  } else {
+    pm += '<p style="margin:0;color:#888">Not enough data yet.</p>';
   }
   if (d.weakest && d.weakest.length) {
-    lines.push('');
-    lines.push('Hardest individual facts:');
-    d.weakest.forEach(function (f) {
-      lines.push('  • ' + f.fact + ' — ' + f.acc + '% first-try, ' + f.miss + ' total slips');
-    });
+    pm += '<p style="margin:10px 0 0"><b>Hardest facts:</b> ' +
+      d.weakest.map(function (f) { return esc_(f.fact) + ' (' + f.acc + '%)'; }).join(', ') + '</p>';
   }
-  lines.push('');
-  lines.push('(Sent automatically by DragonMath. Reply-to-self only.)');
-  MailApp.sendEmail(PARENT_EMAIL, subject, lines.join('\n'));
+
+  // 3) never tried
+  var av = (d.avoided && d.avoided.length)
+    ? d.avoided.map(function (x) {
+        return '<span style="display:inline-block;background:#ffe0e0;color:#c0392b;border-radius:8px;padding:3px 10px;margin:3px">' + esc_(x) + '</span>';
+      }).join('')
+    : '<span style="color:#1aa78f">None — she has tried every game! 🎉</span>';
+
+  var html = '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#2a2150">' +
+    '<h2 style="color:#7b4dff;margin:0 0 2px">🐉 ' + esc_(who) + ' — DragonMath</h2>' +
+    '<p style="color:#888;margin:0 0 16px">' + esc_(subject) + '</p>' +
+    card_('How much she used it', usage) +
+    card_('Areas to practice more', pm) +
+    card_('Never tried yet', av) +
+    '<p style="color:#aaa;font-size:12px;margin-top:18px">Sent automatically by DragonMath.</p></div>';
+
+  MailApp.sendEmail({ to: PARENT_EMAIL, subject: subject, htmlBody: html });
 }
 
-// ---- install the two schedules (run once) ----
+function card_(title, inner) {
+  return '<div style="background:#faf8ff;border:1px solid #ece4ff;border-radius:12px;padding:14px 16px;margin:0 0 14px">' +
+    '<h3 style="margin:0 0 8px;color:#7b4dff;font-size:16px">' + esc_(title) + '</h3>' + inner + '</div>';
+}
+function row_(label, val) {
+  return '<tr><td style="color:#888;padding:3px 0">' + esc_(label) + '</td>' +
+    '<td align="right" style="font-weight:bold">' + esc_(val) + '</td></tr>';
+}
+function esc_(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ---------- install the two schedules (run once) ----------
 function setup() {
-  // clear any old triggers for these functions
   ScriptApp.getProjectTriggers().forEach(function (t) {
     var fn = t.getHandlerFunction();
     if (fn === 'weeklyReview' || fn === 'idleCheck') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('weeklyReview').timeBased()
-    .onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(8).create();
-  ScriptApp.newTrigger('idleCheck').timeBased()
-    .everyDays(1).atHour(8).create();
+  ScriptApp.newTrigger('weeklyReview').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(8).create();
+  ScriptApp.newTrigger('idleCheck').timeBased().everyDays(1).atHour(8).create();
   Logger.log('DragonMath sync installed: weekly (Sun 8am) + daily idle check (8am).');
 }

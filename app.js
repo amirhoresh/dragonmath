@@ -19,6 +19,7 @@ const defaultSave = () => ({
   syncUrl: '',         // parent's Google Apps Script URL (optional)
   childName: '',       // optional, for the parent email
   lastSync: 0,
+  tablesLevel: 1,      // current level in the timed Tables game
 });
 
 function load() {
@@ -38,6 +39,7 @@ let state = load();
 const TOPIC_LABEL = {
   count: 'Multiplication', pop: 'Speed (Bubble Pop)', division: 'Division',
   primes: 'Primes', shapes: 'Shapes', triangles: 'Triangles', fractions: 'Fractions',
+  tables: 'Times Tables (timed)',
 };
 function todayKey(d = new Date()) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -101,13 +103,20 @@ function topicStruggle() {
   out.sort((a, b) => b.missPerQ - a.missPerQ);
   return out;
 }
+const ALL_MODES = ['count', 'pop', 'division', 'primes', 'shapes', 'triangles', 'fractions', 'tables'];
 function buildPayload() {
+  // games she has never opened (zero questions answered)
+  const avoided = ALL_MODES.filter((m) => !(state.topics[m] && state.topics[m].q > 0)).map((m) => TOPIC_LABEL[m]);
+  let allQ = 0, allDays = 0;
+  for (const m in state.topics) allQ += state.topics[m].q || 0;
+  for (const k in state.days) if ((state.days[k].a || 0) > 0) allDays++;
   return {
     app: 'dragonmath', childName: state.childName || '',
     lastActivityTs: state.lastActivityTs || 0, sentAt: Date.now(),
-    stars: state.stars, stage: STAGES[stageIndex(state.stars)].name,
+    stars: state.stars, stage: STAGES[stageIndex(state.stars)].label,
     days: state.days, week: weekStats(),
     weakest: weakestFacts(8), struggle: topicStruggle(),
+    avoided, totals: { questions: allQ, daysPracticed: allDays },
   };
 }
 function syncNow(force, isTest) {
@@ -155,14 +164,18 @@ const audio = {
   grow()    { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.18, i * 0.09, 'triangle', 0.16)); },
 };
 
-// ---------- dragon growth ----------
-// 5 stages by lifetime stars. Each stage = bigger + new accessory.
+// ---------- Sparky (pet) growth ----------
+// Many small steps with rising thresholds → slow growth that builds anticipation.
+const PET = 'ספארקי';
 const STAGES = [
-  { name: 'Eggbert',  min: 0,   label: 'a wobbly egg' },
-  { name: 'Sparky',   min: 30,  label: 'a baby dragon' },
-  { name: 'Blaze',    min: 90,  label: 'a young dragon' },
-  { name: 'Ember',    min: 200, label: 'a strong dragon' },
-  { name: 'Pyrus',    min: 400, label: 'a mighty dragon!' },
+  { min: 0,    label: 'ביצה' },
+  { min: 80,   label: 'בוקע מהביצה' },
+  { min: 200,  label: 'דרקון תינוק' },
+  { min: 380,  label: 'דרקון קטן' },
+  { min: 620,  label: 'דרקון צעיר' },
+  { min: 950,  label: 'דרקון נמרץ' },
+  { min: 1400, label: 'דרקון אביר' },
+  { min: 2000, label: 'דרקון אגדי' },
 ];
 function stageIndex(stars) {
   let i = 0;
@@ -177,36 +190,53 @@ function stageProgress(stars) {
   return Math.min(1, (stars - cur) / (next - cur));
 }
 
-// Cute SVG dragon. Scale + crown/wings appear by stage.
+// Cute SVG dragon. Features unlock gradually across the 8 stages.
 function dragonSVG(stage) {
-  const scale = [0.74, 0.86, 1.0, 1.12, 1.25][stage];
-  const crown = stage >= 4
-    ? '<path d="M70 36 l8 -16 8 12 8 -16 8 16 8 -12 8 16 z" fill="#ffd23f" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>'
-    : '';
-  const wings = stage >= 2
-    ? '<path d="M40 96 q-34 -10 -30 30 q22 -10 34 4 z" fill="#7b4dff" stroke="#2a2150" stroke-width="3"/>' +
-      '<path d="M160 96 q34 -10 30 30 q-22 -10 -34 4 z" fill="#7b4dff" stroke="#2a2150" stroke-width="3"/>'
-    : '';
   // Egg-only look for stage 0
   if (stage === 0) {
-    return `<svg class="dragon-svg dragon-bob" viewBox="0 0 200 200" role="img" aria-label="${STAGES[0].name}, ${STAGES[0].label}">
+    return `<svg class="dragon-svg dragon-bob" viewBox="0 0 200 200" role="img" aria-label="${PET}, ${STAGES[0].label}">
       <ellipse cx="100" cy="118" rx="58" ry="70" fill="#ffe9c7" stroke="#2a2150" stroke-width="4"/>
       <path d="M55 110 l16 14 14 -16 14 16 14 -16 16 16" fill="none" stroke="#ff9a3d" stroke-width="6" stroke-linecap="round"/>
       <circle cx="84" cy="96" r="6" fill="#2a2150"/><circle cx="116" cy="96" r="6" fill="#2a2150"/>
     </svg>`;
   }
-  return `<svg class="dragon-svg dragon-bob" viewBox="0 0 200 200" role="img" aria-label="${STAGES[stage].name}, ${STAGES[stage].label}" style="transform:scale(${scale})">
-    ${wings}
+  const scale = [0, 0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.30][stage] || 1.3;
+  const wings = '<path d="M40 96 q-34 -10 -30 30 q22 -10 34 4 z" fill="#7b4dff" stroke="#2a2150" stroke-width="3"/>' +
+                '<path d="M160 96 q34 -10 30 30 q-22 -10 -34 4 z" fill="#7b4dff" stroke="#2a2150" stroke-width="3"/>';
+  const bigWings = stage >= 5
+    ? '<path d="M44 92 q-46 -16 -42 36 q30 -14 46 6 z" fill="#9a6bff" stroke="#2a2150" stroke-width="3"/>' +
+      '<path d="M156 92 q46 -16 42 36 q-30 -14 -46 6 z" fill="#9a6bff" stroke="#2a2150" stroke-width="3"/>'
+    : '';
+  const belly = stage >= 4
+    ? '<path d="M86 140 h28 M84 152 h32 M86 164 h28" stroke="#7fe0cd" stroke-width="3" stroke-linecap="round" fill="none"/>'
+    : '';
+  const horns = stage >= 3
+    ? '<path d="M74 44 l-10 -16 16 6 z" fill="#bff3e8" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>' +
+      '<path d="M126 44 l10 -16 -16 6 z" fill="#bff3e8" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>'
+    : '';
+  const crest = (stage >= 2 && stage < 6)
+    ? '<path d="M90 34 l4 -12 4 12 z M100 32 l4 -13 4 13 z M110 34 l4 -12 4 12 z" fill="#1aa78f" stroke="#2a2150" stroke-width="2" stroke-linejoin="round"/>'
+    : '';
+  const crown = stage >= 6
+    ? '<path d="M78 34 l8 -16 8 12 8 -16 8 16 8 -12 8 16 z" fill="#ffd23f" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>'
+    : '';
+  const sparkle = stage >= 7
+    ? '<g fill="#ffd23f"><path d="M30 40 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3 z"/><path d="M168 52 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2 z"/></g>'
+    : '';
+  return `<svg class="dragon-svg dragon-bob" viewBox="0 0 200 200" role="img" aria-label="${PET}, ${STAGES[stage].label}" style="transform:scale(${scale})">
+    ${bigWings}${wings}
     <ellipse cx="100" cy="130" rx="56" ry="52" fill="#21c1a6" stroke="#2a2150" stroke-width="4"/>
     <ellipse cx="100" cy="148" rx="34" ry="28" fill="#bff3e8" stroke="#2a2150" stroke-width="3"/>
+    ${belly}
     <circle cx="100" cy="78" r="44" fill="#21c1a6" stroke="#2a2150" stroke-width="4"/>
-    ${crown}
+    ${horns}${crest}${crown}
     <circle cx="84" cy="74" r="9" fill="#fff" stroke="#2a2150" stroke-width="3"/>
     <circle cx="116" cy="74" r="9" fill="#fff" stroke="#2a2150" stroke-width="3"/>
     <circle cx="86" cy="76" r="4" fill="#2a2150"/><circle cx="118" cy="76" r="4" fill="#2a2150"/>
     <path d="M92 96 q8 8 16 0" fill="none" stroke="#2a2150" stroke-width="4" stroke-linecap="round"/>
     <path d="M70 44 l-6 -16 18 8 z" fill="#ff5db1" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>
     <path d="M130 44 l6 -16 -18 8 z" fill="#ff5db1" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>
+    ${sparkle}
   </svg>`;
 }
 
@@ -357,6 +387,7 @@ function el(html) { const t = document.createElement('template'); t.innerHTML = 
 
 function renderHome() {
   round = null;
+  tables = null;
   const si = stageIndex(state.stars);
   const prog = Math.round(stageProgress(state.stars) * 100);
   const idle = daysIdle();
@@ -364,28 +395,29 @@ function renderHome() {
   const home = el(`
     <div class="home">
       <div class="topbar">
-        <h1 class="title">Dragon<b>Math</b></h1>
-        <button class="mute" id="settings" aria-label="Parent area">⚙️</button>
-        <button class="mute" id="mute" aria-label="${state.muted ? 'Unmute' : 'Mute'}">${state.muted ? '🔇' : '🔊'}</button>
+        <h1 class="title">ספארקי <b>חשבון</b></h1>
+        <button class="mute" id="settings" aria-label="אזור הורים">⚙️</button>
+        <button class="mute" id="mute" aria-label="${state.muted ? 'הפעלת קול' : 'השתקה'}">${state.muted ? '🔇' : '🔊'}</button>
       </div>
-      ${idle !== null && idle > 3 ? `<div class="idle-banner">🐉 הדרקון מתגעגע! לא שיחקת כבר ${idle} ימים</div>` : ''}
+      ${idle !== null && idle > 3 ? `<div class="idle-banner">🐉 ספארקי מתגעגע! לא שיחקת כבר ${idle} ימים</div>` : ''}
       <div class="dragon-wrap">
         ${dragonSVG(si)}
-        <div class="dragon-name">${STAGES[si].name}</div>
+        <div class="dragon-name">${PET}</div>
         <div class="dragon-stage">${STAGES[si].label}</div>
         <div class="progress xpbar"><i style="width:${prog}%"></i></div>
       </div>
       <div class="stars-pill"><span class="star">★</span> ${state.stars}</div>
       <div class="mode-buttons">
-        <button class="btn btn--big btn--teal" id="play-count">🔢 Count &amp; Learn</button>
-        <button class="btn btn--big btn--pink" id="play-pop">⚡ Bubble Pop</button>
-        <button class="btn btn--big btn--coral" id="play-shapes">🔷 Shapes</button>
-        <button class="btn btn--big" id="play-triangles">📐 Triangles</button>
-        <button class="btn btn--big btn--teal" id="play-division">➗ Division</button>
-        <button class="btn btn--big btn--pink" id="play-primes">🧱 Primes</button>
-        <button class="btn btn--big btn--coral" id="play-fractions">🍕 Fractions</button>
+        <button class="btn btn--big btn--teal" id="play-count">🔢 כפל בנקודות</button>
+        <button class="btn btn--big btn--pink" id="play-pop">⚡ בועות מהירות</button>
+        <button class="btn btn--big btn--coral" id="play-shapes">🔷 צורות</button>
+        <button class="btn btn--big" id="play-triangles">📐 משולשים</button>
+        <button class="btn btn--big btn--teal" id="play-division">➗ חילוק</button>
+        <button class="btn btn--big btn--pink" id="play-primes">🧱 מספרים ראשוניים</button>
+        <button class="btn btn--big btn--coral" id="play-fractions">🍕 שברים</button>
+        <button class="btn btn--big" id="play-tables">🏆 לוח הכפל</button>
       </div>
-      <p class="subtitle">Multiply, divide, pop bubbles & learn shapes — grow your dragon!</p>
+      <p class="subtitle">משחקים, לומדים — וספארקי גדל!</p>
     </div>
   `);
   app.appendChild(home);
@@ -396,6 +428,7 @@ function renderHome() {
   home.querySelector('#play-division').onclick = () => startRound('division');
   home.querySelector('#play-primes').onclick = () => startRound('primes');
   home.querySelector('#play-fractions').onclick = () => startRound('fractions');
+  home.querySelector('#play-tables').onclick = () => startTables(state.tablesLevel || 1);
   home.querySelector('#mute').onclick = (e) => {
     state.muted = !state.muted;
     save(state);
@@ -1097,6 +1130,177 @@ function chooseFrac(o, btn) {
   }
 }
 
+// ====================== TABLES (timed levels) GAME ======================
+// Levels of 30 questions (3 per number 1–10, no commutative repeats). Each answer
+// is timed (10s at L1, −1s per level, floor 4s). +1 point right, −1 wrong/timeout.
+// Correct answers convert to dragon stars at the end of the level.
+let tables = null;
+function tablesTime(level) { return Math.max(4, 11 - level); }
+const TABLES_STARS_PER_CORRECT = 2;
+
+function generateTablesLevel() {
+  // all 55 distinct facts (canonical a≤b → no commutative repeats), then take 15,
+  // capping the trivial ×1 / ×10 ones so the level isn't padded with freebies.
+  const all = [];
+  for (let a = 1; a <= 10; a++) for (let b = a; b <= 10; b++) all.push([a, b]);
+  shuffleInPlace(all);
+  const qs = [];
+  let trivial = 0;
+  for (const [a, b] of all) {
+    if (qs.length >= 15) break;
+    const isTriv = a === 1 || b === 1 || a === 10 || b === 10;
+    if (isTriv && trivial >= 3) continue;
+    qs.push(rand() < 0.5 ? [a, b] : [b, a]);   // randomize which side is shown first
+    if (isTriv) trivial++;
+  }
+  return shuffleInPlace(qs);
+}
+
+function startTables(level) {
+  audio.ensure();
+  round = null;
+  tables = { level, perQ: tablesTime(level), queue: generateTablesLevel(),
+    i: 0, correct: 0, wrong: 0, points: 0, locked: true, raf: 0, deadline: 0 };
+  renderTablesStart();
+}
+
+function renderTablesStart() {
+  const t = tables;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="tables-start">
+      <div class="tl-badge">שלב ${t.level}</div>
+      <p class="tl-sub">${t.queue.length} שאלות · ${t.perQ} שניות לכל אחת</p>
+      <p class="tl-tip">תעני מהר ככל שאפשר — בכל שלב הזמן מתקצר!</p>
+      <button class="btn btn--big btn--teal" id="go">התחלה ▶</button>
+      <button class="btn btn--ghost" id="home">בית</button>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#go').onclick = () => { tables.locked = false; renderTablesQuestion(); };
+  view.querySelector('#home').onclick = () => renderHome();
+}
+
+function renderTablesQuestion() {
+  const t = tables;
+  const [a, b] = t.queue[t.i];
+  t.a = a; t.b = b; t.answer = a * b; t.locked = false;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round tables">
+      <div class="topbar">
+        <div class="tl-pill">שלב ${t.level}</div>
+        <div class="progress"><i style="width:${(t.i / t.queue.length) * 100}%"></i></div>
+        <div class="tl-pill ${t.points < 0 ? 'neg' : ''}" id="tpoints">${t.points} נק׳</div>
+      </div>
+      <div class="timer-bar"><i id="tbar" style="width:100%"></i></div>
+      <div class="prompt-card"><p class="prompt-text"><span class="a">${a}</span> × <span class="b">${b}</span> = ?</p></div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  answerOptions(t.answer).forEach((opt) => {
+    const btn = el(`<button class="btn answer">${opt}</button>`);
+    btn.onclick = () => tablesAnswer(opt, btn);
+    answers.appendChild(btn);
+  });
+  t.tbar = view.querySelector('#tbar');
+  t.deadline = performance.now() + t.perQ * 1000;
+  tablesTick();
+}
+
+function tablesTick() {
+  const t = tables;
+  if (!t || t.locked) return;
+  const rem = t.deadline - performance.now();
+  const frac = Math.max(0, rem / (t.perQ * 1000));
+  if (t.tbar) { t.tbar.style.width = (frac * 100) + '%'; t.tbar.classList.toggle('low', frac < 0.34); }
+  if (rem <= 0) { tablesTimeout(); return; }
+  t.raf = requestAnimationFrame(tablesTick);
+}
+function tablesStopTimer() { if (tables && tables.raf) cancelAnimationFrame(tables.raf); }
+
+function tablesScore(correct) {
+  const t = tables;
+  if (correct) { t.correct++; t.points++; } else { t.wrong++; t.points--; }
+  recordActivity(correct, correct ? 0 : 1);
+  recordTopic('tables', correct ? 0 : 1, correct);
+  recordAttempt(t.a, t.b, correct, correct ? 0 : 1);
+}
+
+function tablesAnswer(opt, btn) {
+  const t = tables;
+  if (t.locked) return;
+  t.locked = true; tablesStopTimer();
+  const hint = document.getElementById('hint');
+  if (opt === t.answer) {
+    btn.classList.add('correct');
+    audio.correct();
+    tablesScore(true);
+    hint.textContent = 'יפה! ⭐';
+    setTimeout(tablesAdvance, 600);
+  } else {
+    btn.classList.add('wrong');
+    audio.wrong();
+    [...document.querySelectorAll('.answer')].forEach((x) => { if (+x.textContent === t.answer) x.classList.add('correct'); });
+    tablesScore(false);
+    hint.textContent = `${t.a} × ${t.b} = ${t.answer}`;
+    setTimeout(tablesAdvance, 950);
+  }
+}
+
+function tablesTimeout() {
+  const t = tables;
+  if (t.locked) return;
+  t.locked = true; tablesStopTimer();
+  audio.wrong();
+  [...document.querySelectorAll('.answer')].forEach((x) => { if (+x.textContent === t.answer) x.classList.add('correct'); });
+  tablesScore(false);
+  const hint = document.getElementById('hint');
+  if (hint) hint.textContent = `נגמר הזמן! ${t.a} × ${t.b} = ${t.answer}`;
+  setTimeout(tablesAdvance, 950);
+}
+
+function tablesAdvance() {
+  if (!tables) return;
+  tables.i++;
+  if (tables.i >= tables.queue.length) return endTablesLevel();
+  renderTablesQuestion();
+}
+
+function endTablesLevel() {
+  const t = tables;
+  const stars = t.correct * TABLES_STARS_PER_CORRECT;
+  const before = stageIndex(state.stars);
+  state.stars += stars; dayBucket().s += stars;
+  state.tablesLevel = Math.max(state.tablesLevel || 1, t.level + 1);
+  state.lastPlayed = Date.now();
+  save(state);
+  syncNow(true);
+  const grew = stageIndex(state.stars) > before;
+  const si = stageIndex(state.stars);
+  const lvl = t.level, total = t.queue.length, correct = t.correct, points = t.points;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="end">
+      <h2>שלב ${lvl} הושלם! 🎉</h2>
+      <div class="dragon-wrap">${dragonSVG(si)}<div class="dragon-name">${PET}${grew ? ' גדל! 🎉' : ''}</div></div>
+      <div class="earned">${correct}/${total} נכון · ${points} נק׳</div>
+      <div class="earned">צברת <span class="star">★</span> ${stars}</div>
+      <button class="btn btn--big btn--teal" id="next">שלב ${lvl + 1} → מהר יותר!</button>
+      <button class="btn btn--big btn--ghost" id="home">בית</button>
+    </div>
+  `);
+  app.appendChild(view);
+  if (grew) audio.grow();
+  confetti(40);
+  flyStars(Math.min(stars, 6), view.querySelector('.star'));
+  view.querySelector('#next').onclick = () => startTables(lvl + 1);
+  view.querySelector('#home').onclick = () => renderHome();
+}
+
 // ====================== SHAPES GAME ======================
 // Quadrilaterals: square, rectangle, rhombus, parallelogram, trapezoid, kite.
 const SHAPES = {
@@ -1572,15 +1776,16 @@ function endRound() {
   app.innerHTML = '';
   const end = el(`
     <div class="end">
-      <h2>Great job! 🎉</h2>
+      <h2>כל הכבוד! 🎉</h2>
       <div class="dragon-wrap">
         ${dragonSVG(si)}
-        <div class="dragon-name">${STAGES[si].name} grew!</div>
+        <div class="dragon-name">${PET}</div>
+        <div class="dragon-stage">${STAGES[si].label}</div>
       </div>
-      <div class="earned">You earned <span class="star">★</span> ${round.starsEarned} this round</div>
-      <div class="stars-pill"><span class="star">★</span> ${state.stars} total</div>
-      <button class="btn btn--big btn--teal" id="home">Back home</button>
-      <p class="cooldown">Come back later — your dragon needs a rest 😴</p>
+      <div class="earned">צברת <span class="star">★</span> ${round.starsEarned} הפעם</div>
+      <div class="stars-pill"><span class="star">★</span> ${state.stars} בסך הכול</div>
+      <button class="btn btn--big btn--teal" id="home">חזרה הביתה</button>
+      <p class="cooldown">תחזרי אחר כך — ספארקי צריך לנוח 😴</p>
     </div>
   `);
   app.appendChild(end);

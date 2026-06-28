@@ -264,8 +264,22 @@ html, body {
 .earned .star { color: var(--sun); }
 .cooldown { font-size: 18px; opacity: .75; }
 
+/* ---------- tables (timed levels) ---------- */
+.timer-bar { height: 14px; background: #ece4ff; border-radius: 999px; overflow: hidden; flex: none; margin-bottom: 6px; }
+.timer-bar i { display: block; height: 100%; width: 100%; background: var(--teal); border-radius: 999px; }
+.timer-bar i.low { background: #ff5a5a; }
+.tl-pill { background: #fff; border-radius: 999px; padding: 5px 13px; font-weight: 800; font-size: clamp(14px, 2.2vh, 17px); box-shadow: var(--shadow); white-space: nowrap; }
+.tl-pill.neg { color: #c0392b; }
+.tables .topbar { gap: 8px; }
+.tables-start { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 2.6vh, 22px); text-align: center; }
+.tl-badge { font-size: clamp(40px, 9vh, 80px); font-weight: 800; color: var(--purple); line-height: 1; }
+.tl-sub { font-size: clamp(18px, 3.2vh, 26px); font-weight: 800; margin: 0; color: var(--pink); }
+.tl-tip { font-size: clamp(14px, 2.4vh, 18px); opacity: .8; margin: 0; max-width: 28ch; }
+.tables-start .btn--big { width: min(80vw, 360px); }
+
 /* ---------- idle nudge + parent area ---------- */
-#settings { margin-left: auto; }
+#settings { margin-inline-start: auto; }
+.home, .end, .tables-start { direction: rtl; }
 .idle-banner { background: #fff3cf; color: #7a5a00; border-radius: 16px; padding: 8px 14px; font-weight: 800; font-size: clamp(14px, 2.4vh, 18px); text-align: center; }
 .settings { flex: 1; min-height: 0; display: flex; flex-direction: column; direction: ltr; text-align: left; }
 .settings .topbar { margin-bottom: 6px; }
