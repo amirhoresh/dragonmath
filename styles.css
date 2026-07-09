@@ -119,9 +119,24 @@ html, body {
 
 /* ---------- dragon ---------- */
 .dragon-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.dragon-svg { width: min(52vw, 19vh, 230px); height: auto; filter: drop-shadow(0 10px 0 rgba(42,33,80,.12)); transition: transform .4s cubic-bezier(.34,1.56,.64,1); }
-.dragon-bob { animation: bob 2.6s ease-in-out infinite; }
-@keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+.dragon-float { animation: dragon-bob 2.2s ease-in-out infinite; }
+.dragon-breathe { animation: dragon-breathe 3.1s ease-in-out infinite; }
+.dragon-sprite {
+  display: block;
+  width: min(52vw, 19vh, 230px);
+  height: min(52vw, 19vh, 230px);
+  background-repeat: no-repeat;
+  background-size: 400% auto;
+  background-position: 0% 0%;
+  animation: dragon-step 0.8s steps(4) infinite, dragon-glow 2.5s ease-in-out infinite;
+}
+@keyframes dragon-bob     { 0%,100%{transform:translateY(0)}    50%{transform:translateY(-12px)} }
+@keyframes dragon-breathe { 0%,100%{transform:scale(1)}         50%{transform:scale(1.06)} }
+@keyframes dragon-step    { to { background-position: 133.33% 0%; } }
+@keyframes dragon-glow {
+  0%,100% { filter: drop-shadow(0 10px 6px rgba(42,33,80,.15)) drop-shadow(0 0 6px rgba(123,77,255,.20)); }
+  50%      { filter: drop-shadow(0 10px 6px rgba(42,33,80,.18)) drop-shadow(0 0 22px rgba(123,77,255,.65)); }
+}
 .dragon-name { font-weight: 800; font-size: 22px; color: var(--purple); }
 .dragon-stage { font-weight: 700; font-size: 16px; color: var(--ink); opacity: .7; }
 .xpbar { width: min(60vw, 240px); }
@@ -333,7 +348,7 @@ html, body {
      shrink the dragon, and drop the tagline so nothing clips. */
   .home .mode-buttons { grid-template-columns: repeat(4, 1fr); }
   .home .mode-buttons .btn { min-height: clamp(36px, 16vh, 56px); font-size: clamp(14px, 2.9vh, 19px); }
-  .home .dragon-svg { width: min(26vw, 14vh, 120px); }
+  .home .dragon-sprite { width: min(26vw, 14vh, 120px); height: min(26vw, 14vh, 120px); }
   .home .title { font-size: clamp(24px, 5vh, 44px); }
   .home .dragon-wrap { gap: 2px; }
   .home .subtitle { display: none; }
@@ -343,5 +358,5 @@ html, body {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
-  .dragon-bob { animation: none; }
+  .dragon-float, .dragon-breathe, .dragon-sprite { animation: none !important; }
 }

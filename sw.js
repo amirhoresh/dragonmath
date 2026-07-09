@@ -1,6 +1,6 @@
 /* DragonMath service worker — network-first so updates always reach the device
    when online, with a cached app shell as offline fallback. */
-const CACHE = 'dragonmath-v17';
+const CACHE = 'dragonmath-v18';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,16 @@ const ASSETS = [
   './icon.svg',
   './fonts/varelaround-hebrew.woff2',
   './fonts/varelaround-latin.woff2',
+  './assets/phase-01.png',
+  './assets/phase-02.png',
+  './assets/phase-03.png',
+  './assets/phase-04.png',
+  './assets/phase-05.png',
+  './assets/phase-06.png',
+  './assets/phase-07.png',
+  './assets/phase-08.png',
+  './assets/phase-09.png',
+  './assets/phase-10.png',
 ];
 
 self.addEventListener('install', (e) => {

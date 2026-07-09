@@ -191,53 +191,17 @@ function stageProgress(stars) {
 }
 
 // Cute SVG dragon. Features unlock gradually across the 8 stages.
+// stage 0-7 → phase-01..06, phase-08, phase-10 (saves most epic for legendary)
+const STAGE_PHASE = ['phase-01','phase-02','phase-03','phase-04','phase-05','phase-06','phase-08','phase-10'];
+
 function dragonSVG(stage) {
-  // Egg-only look for stage 0
-  if (stage === 0) {
-    return `<svg class="dragon-svg dragon-bob" viewBox="0 0 200 200" role="img" aria-label="${PET}, ${STAGES[0].label}">
-      <ellipse cx="100" cy="118" rx="58" ry="70" fill="#ffe9c7" stroke="#2a2150" stroke-width="4"/>
-      <path d="M55 110 l16 14 14 -16 14 16 14 -16 16 16" fill="none" stroke="#ff9a3d" stroke-width="6" stroke-linecap="round"/>
-      <circle cx="84" cy="96" r="6" fill="#2a2150"/><circle cx="116" cy="96" r="6" fill="#2a2150"/>
-    </svg>`;
-  }
-  const scale = [0, 0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.30][stage] || 1.3;
-  const wings = '<path d="M40 96 q-34 -10 -30 30 q22 -10 34 4 z" fill="#7b4dff" stroke="#2a2150" stroke-width="3"/>' +
-                '<path d="M160 96 q34 -10 30 30 q-22 -10 -34 4 z" fill="#7b4dff" stroke="#2a2150" stroke-width="3"/>';
-  const bigWings = stage >= 5
-    ? '<path d="M44 92 q-46 -16 -42 36 q30 -14 46 6 z" fill="#9a6bff" stroke="#2a2150" stroke-width="3"/>' +
-      '<path d="M156 92 q46 -16 42 36 q-30 -14 -46 6 z" fill="#9a6bff" stroke="#2a2150" stroke-width="3"/>'
-    : '';
-  const belly = stage >= 4
-    ? '<path d="M86 140 h28 M84 152 h32 M86 164 h28" stroke="#7fe0cd" stroke-width="3" stroke-linecap="round" fill="none"/>'
-    : '';
-  const horns = stage >= 3
-    ? '<path d="M74 44 l-10 -16 16 6 z" fill="#bff3e8" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>' +
-      '<path d="M126 44 l10 -16 -16 6 z" fill="#bff3e8" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>'
-    : '';
-  const crest = (stage >= 2 && stage < 6)
-    ? '<path d="M90 34 l4 -12 4 12 z M100 32 l4 -13 4 13 z M110 34 l4 -12 4 12 z" fill="#1aa78f" stroke="#2a2150" stroke-width="2" stroke-linejoin="round"/>'
-    : '';
-  const crown = stage >= 6
-    ? '<path d="M78 34 l8 -16 8 12 8 -16 8 16 8 -12 8 16 z" fill="#ffd23f" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>'
-    : '';
-  const sparkle = stage >= 7
-    ? '<g fill="#ffd23f"><path d="M30 40 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3 z"/><path d="M168 52 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2 z"/></g>'
-    : '';
-  return `<svg class="dragon-svg dragon-bob" viewBox="0 0 200 200" role="img" aria-label="${PET}, ${STAGES[stage].label}" style="transform:scale(${scale})">
-    ${bigWings}${wings}
-    <ellipse cx="100" cy="130" rx="56" ry="52" fill="#21c1a6" stroke="#2a2150" stroke-width="4"/>
-    <ellipse cx="100" cy="148" rx="34" ry="28" fill="#bff3e8" stroke="#2a2150" stroke-width="3"/>
-    ${belly}
-    <circle cx="100" cy="78" r="44" fill="#21c1a6" stroke="#2a2150" stroke-width="4"/>
-    ${horns}${crest}${crown}
-    <circle cx="84" cy="74" r="9" fill="#fff" stroke="#2a2150" stroke-width="3"/>
-    <circle cx="116" cy="74" r="9" fill="#fff" stroke="#2a2150" stroke-width="3"/>
-    <circle cx="86" cy="76" r="4" fill="#2a2150"/><circle cx="118" cy="76" r="4" fill="#2a2150"/>
-    <path d="M92 96 q8 8 16 0" fill="none" stroke="#2a2150" stroke-width="4" stroke-linecap="round"/>
-    <path d="M70 44 l-6 -16 18 8 z" fill="#ff5db1" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>
-    <path d="M130 44 l6 -16 -18 8 z" fill="#ff5db1" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/>
-    ${sparkle}
-  </svg>`;
+  const phase = STAGE_PHASE[Math.min(stage, STAGE_PHASE.length - 1)];
+  const label = (STAGES[stage] || {}).label || '';
+  return `<div class="dragon-float" role="img" aria-label="${PET}, ${label}">
+    <div class="dragon-breathe">
+      <div class="dragon-sprite" style="background-image:url('assets/${phase}.png')"></div>
+    </div>
+  </div>`;
 }
 
 // ---------- fact selection (adaptive) ----------
