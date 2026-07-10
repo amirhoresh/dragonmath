@@ -126,11 +126,11 @@ html, body {
   width: min(52vw, 19vh, 230px);
   height: min(52vw, 19vh, 230px);
   background-repeat: no-repeat;
-  background-size: 1600% auto;
+  background-size: 800% auto;
   background-position: 0% 0%;
-  animation: dragon-step 1.2s steps(16) infinite, dragon-glow 3s ease-in-out infinite;
+  animation: dragon-step 1.2s steps(8) infinite, dragon-glow 3s ease-in-out infinite;
 }
-@keyframes dragon-step { to { background-position: 106.67% 0%; } }
+@keyframes dragon-step { to { background-position: 114.29% 0%; } }
 @keyframes dragon-glow {
   0%,100% { filter: drop-shadow(0 8px 6px rgba(42,33,80,.15)) drop-shadow(0 0 4px rgba(123,77,255,.15)); }
   50%      { filter: drop-shadow(0 8px 6px rgba(42,33,80,.18)) drop-shadow(0 0 18px rgba(123,77,255,.55)); }
