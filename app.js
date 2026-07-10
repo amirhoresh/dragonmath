@@ -373,10 +373,10 @@ function renderHome() {
       <div class="stars-pill"><span class="star">★</span> ${state.stars}</div>
       <div class="mode-buttons">
         <button class="btn btn--big btn--teal" id="play-mul">✖️ כפל</button>
-        <button class="btn btn--big btn--coral" id="play-geo">🔷 גיאומטריה</button>
-        <button class="btn btn--big btn--teal" id="play-division">➗ חילוק</button>
-        <button class="btn btn--big btn--pink" id="play-primes">🧱 מספרים ראשוניים</button>
-        <button class="btn btn--big btn--coral" id="play-fractions">🍕 שברים</button>
+        <button class="btn btn--big btn--pink" id="play-geo">🔷 גיאומטריה</button>
+        <button class="btn btn--big btn--coral" id="play-division">➗ חילוק</button>
+        <button class="btn btn--big" id="play-primes">🧱 מספרים ראשוניים</button>
+        <button class="btn btn--big btn--teal" id="play-fractions">🍕 שברים</button>
       </div>
       <p class="subtitle">משחקים, לומדים — וספארקי גדל!</p>
     </div>
