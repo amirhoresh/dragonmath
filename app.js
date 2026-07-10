@@ -372,27 +372,23 @@ function renderHome() {
       </div>
       <div class="stars-pill"><span class="star">★</span> ${state.stars}</div>
       <div class="mode-buttons">
-        <button class="btn btn--big btn--teal" id="play-count">🔢 כפל בנקודות</button>
-        <button class="btn btn--big btn--pink" id="play-pop">⚡ בועות מהירות</button>
+        <button class="btn btn--big btn--teal" id="play-mul">✖️ כפל</button>
         <button class="btn btn--big btn--coral" id="play-shapes">🔷 צורות</button>
         <button class="btn btn--big" id="play-triangles">📐 משולשים</button>
         <button class="btn btn--big btn--teal" id="play-division">➗ חילוק</button>
         <button class="btn btn--big btn--pink" id="play-primes">🧱 מספרים ראשוניים</button>
         <button class="btn btn--big btn--coral" id="play-fractions">🍕 שברים</button>
-        <button class="btn btn--big" id="play-tables">🏆 לוח הכפל</button>
       </div>
       <p class="subtitle">משחקים, לומדים — וספארקי גדל!</p>
     </div>
   `);
   app.appendChild(home);
-  home.querySelector('#play-count').onclick = () => startRound('count');
-  home.querySelector('#play-pop').onclick = () => startRound('pop');
+  home.querySelector('#play-mul').onclick = () => renderMultiplicationMenu();
   home.querySelector('#play-shapes').onclick = () => startRound('shapes');
   home.querySelector('#play-triangles').onclick = () => startRound('triangles');
   home.querySelector('#play-division').onclick = () => startRound('division');
   home.querySelector('#play-primes').onclick = () => startRound('primes');
   home.querySelector('#play-fractions').onclick = () => startRound('fractions');
-  home.querySelector('#play-tables').onclick = () => startTables(state.tablesLevel || 1);
   home.querySelector('#mute').onclick = (e) => {
     state.muted = !state.muted;
     save(state);
@@ -402,6 +398,29 @@ function renderHome() {
   };
   home.querySelector('#settings').onclick = () => renderSettings();
   syncNow(false);   // opportunistic push when the app is opened (if a URL is set)
+}
+
+function renderMultiplicationMenu() {
+  app.innerHTML = '';
+  const view = el(`
+    <div class="home mul-menu">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <h1 class="title">✖️ <b>כפל</b></h1>
+        <span style="width:52px"></span>
+      </div>
+      <div class="mode-buttons mul-mode-buttons">
+        <button class="btn btn--big btn--teal" id="play-count">🔢 כפל בנקודות</button>
+        <button class="btn btn--big btn--pink" id="play-pop">⚡ בועות מהירות</button>
+        <button class="btn btn--big" id="play-tables">🏆 לוח הכפל</button>
+      </div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderHome();
+  view.querySelector('#play-count').onclick = () => startRound('count');
+  view.querySelector('#play-pop').onclick = () => startRound('pop');
+  view.querySelector('#play-tables').onclick = () => startTables(state.tablesLevel || 1);
 }
 
 // ---------- parent area (progress + sync setup) ----------

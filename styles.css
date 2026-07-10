@@ -153,6 +153,8 @@ html, body {
 .home .topbar { width: 100%; align-items: center; }
 .mode-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(8px, 1.4vh, 12px); width: 100%; }
 .mode-buttons .btn { font-size: clamp(18px, 3.4vh, 24px); min-height: clamp(50px, 8.5vh, 78px); padding: 10px; line-height: 1.15; }
+.mul-mode-buttons { grid-template-columns: 1fr; max-width: 380px; margin: 0 auto; }
+.mul-menu { justify-content: center; gap: clamp(16px, 3vh, 32px); }
 
 /* ---------- bubble pop ---------- */
 .pool { position: relative; flex: 1; min-height: 0; overflow: hidden; }
