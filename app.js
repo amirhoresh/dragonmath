@@ -20,6 +20,7 @@ const defaultSave = () => ({
   childName: '',       // optional, for the parent email
   lastSync: 0,
   tablesLevel: 1,      // current level in the timed Tables game
+  craveDone: '',        // todayKey() when she satisfied today's craving
 });
 
 function load() {
@@ -41,6 +42,31 @@ const TOPIC_LABEL = {
   primes: 'Primes', shapes: 'Shapes', triangles: 'Triangles', fractions: 'Fractions',
   tables: 'Times Tables (timed)',
 };
+
+// ---------- daily craving ----------
+const CRAVING_MODES = ['count','pop','tables','division','primes','shapes','triangles','fractions'];
+const CRAVING_HE = {
+  count: 'כפל בנקודות', pop: 'בועות מהירות', tables: 'לוח הכפל',
+  division: 'חילוק', primes: 'מספרים ראשוניים',
+  shapes: 'צורות', triangles: 'משולשים', fractions: 'שברים',
+};
+// which home button to highlight (null = direct button id)
+const CRAVING_HOME_BTN = {
+  count: 'play-mul', pop: 'play-mul', tables: 'play-mul',
+  shapes: 'play-geo', triangles: 'play-geo',
+  division: 'play-division', primes: 'play-primes', fractions: 'play-fractions',
+};
+function todayCraving() {
+  const dayNum = Math.floor(Date.now() / 86400000);
+  return CRAVING_MODES[dayNum % CRAVING_MODES.length];
+}
+function cravingDone() { return state.craveDone === todayKey(); }
+function satisfyCraving(mode) {
+  if (!cravingDone() && mode === todayCraving()) {
+    state.craveDone = todayKey();
+    save(state);
+  }
+}
 function todayKey(d = new Date()) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
@@ -333,6 +359,7 @@ function makeProblem(a, b, finalWin) {
 
 // ---------- star award ----------
 function awardStars(n, fromEl) {
+  if (!cravingDone() && round && round.mode === todayCraving()) n *= 2;
   const before = stageIndex(state.stars);
   round.starsEarned += n;
   state.stars += n;
@@ -371,12 +398,18 @@ function renderHome() {
         <div class="progress xpbar"><i style="width:${prog}%"></i></div>
       </div>
       <div class="stars-pill"><span class="star">★</span> ${state.stars}</div>
+      ${(()=>{
+        const mode = todayCraving();
+        const done = cravingDone();
+        if (done) return `<div class="craving-bubble craving-bubble--done">😊 תודה שמילאת את הבקשה שלי! ⭐⭐</div>`;
+        return `<div class="craving-bubble">💬 אני רוצה לשחק <b>${CRAVING_HE[mode]}</b>! אקבל כוכבים כפולים! ⭐</div>`;
+      })()}
       <div class="mode-buttons">
-        <button class="btn btn--big btn--teal" id="play-mul">✖️ כפל</button>
-        <button class="btn btn--big btn--pink" id="play-geo">🔷 גיאומטריה</button>
-        <button class="btn btn--big btn--coral" id="play-division">➗ חילוק</button>
-        <button class="btn btn--big" id="play-primes">🧱 מספרים ראשוניים</button>
-        <button class="btn btn--big btn--teal" id="play-fractions">🍕 שברים</button>
+        <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-mul' ? ' btn--craving' : ''}" id="play-mul">✖️ כפל</button>
+        <button class="btn btn--big btn--pink${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-geo' ? ' btn--craving' : ''}" id="play-geo">🔷 גיאומטריה</button>
+        <button class="btn btn--big btn--coral${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-division' ? ' btn--craving' : ''}" id="play-division">➗ חילוק</button>
+        <button class="btn btn--big${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-primes' ? ' btn--craving' : ''}" id="play-primes">🧱 מספרים ראשוניים</button>
+        <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-fractions' ? ' btn--craving' : ''}" id="play-fractions">🍕 שברים</button>
       </div>
       <p class="subtitle">משחקים, לומדים — וספארקי גדל!</p>
     </div>
@@ -407,9 +440,10 @@ function renderGeometryMenu() {
         <h1 class="title">🔷 <b>גיאומטריה</b></h1>
         <span style="width:52px"></span>
       </div>
+      ${!cravingDone() && ['shapes','triangles'].includes(todayCraving()) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[todayCraving()]}</b>! ⭐x2</div>` : ''}
       <div class="mode-buttons mul-mode-buttons">
-        <button class="btn btn--big btn--coral" id="play-shapes">🔷 צורות</button>
-        <button class="btn btn--big" id="play-triangles">📐 משולשים</button>
+        <button class="btn btn--big btn--coral${!cravingDone() && todayCraving()==='shapes' ? ' btn--craving' : ''}" id="play-shapes">🔷 צורות</button>
+        <button class="btn btn--big${!cravingDone() && todayCraving()==='triangles' ? ' btn--craving' : ''}" id="play-triangles">📐 משולשים</button>
       </div>
     </div>
   `);
@@ -428,10 +462,11 @@ function renderMultiplicationMenu() {
         <h1 class="title">✖️ <b>כפל</b></h1>
         <span style="width:52px"></span>
       </div>
+      ${!cravingDone() && ['count','pop','tables'].includes(todayCraving()) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[todayCraving()]}</b>! ⭐x2</div>` : ''}
       <div class="mode-buttons mul-mode-buttons">
-        <button class="btn btn--big btn--teal" id="play-count">🔢 כפל בנקודות</button>
-        <button class="btn btn--big btn--pink" id="play-pop">⚡ בועות מהירות</button>
-        <button class="btn btn--big" id="play-tables">🏆 לוח הכפל</button>
+        <button class="btn btn--big btn--teal${!cravingDone() && todayCraving()==='count' ? ' btn--craving' : ''}" id="play-count">🔢 כפל בנקודות</button>
+        <button class="btn btn--big btn--pink${!cravingDone() && todayCraving()==='pop' ? ' btn--craving' : ''}" id="play-pop">⚡ בועות מהירות</button>
+        <button class="btn btn--big${!cravingDone() && todayCraving()==='tables' ? ' btn--craving' : ''}" id="play-tables">🏆 לוח הכפל</button>
       </div>
     </div>
   `);
@@ -1310,9 +1345,11 @@ function tablesAdvance() {
 function endTablesLevel() {
   const t = tables;
   const lvl = t.level, total = t.queue.length, correct = t.correct, points = t.points;
-  const stars = t.earns ? correct * tablesStarsPerCorrect(lvl) : 0;
+  const craveMul = (t.earns && !cravingDone() && todayCraving() === 'tables') ? 2 : 1;
+  const stars = t.earns ? correct * tablesStarsPerCorrect(lvl) * craveMul : 0;
   const before = stageIndex(state.stars);
   if (stars > 0) { state.stars += stars; dayBucket().s += stars; }
+  if (t.earns) satisfyCraving('tables');
   if (t.earns && lvl < MAX_TABLES_LEVEL) state.tablesLevel = Math.max(state.tablesLevel || 1, lvl + 1);
   state.lastPlayed = Date.now();
   save(state);
@@ -1812,6 +1849,7 @@ function isTriangle(corners, target) {
 }
 
 function endRound() {
+  satisfyCraving(round.mode);
   const si = stageIndex(state.stars);
   state.lastPlayed = Date.now();
   save(state);
