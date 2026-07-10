@@ -373,8 +373,7 @@ function renderHome() {
       <div class="stars-pill"><span class="star">★</span> ${state.stars}</div>
       <div class="mode-buttons">
         <button class="btn btn--big btn--teal" id="play-mul">✖️ כפל</button>
-        <button class="btn btn--big btn--coral" id="play-shapes">🔷 צורות</button>
-        <button class="btn btn--big" id="play-triangles">📐 משולשים</button>
+        <button class="btn btn--big btn--coral" id="play-geo">🔷 גיאומטריה</button>
         <button class="btn btn--big btn--teal" id="play-division">➗ חילוק</button>
         <button class="btn btn--big btn--pink" id="play-primes">🧱 מספרים ראשוניים</button>
         <button class="btn btn--big btn--coral" id="play-fractions">🍕 שברים</button>
@@ -384,8 +383,7 @@ function renderHome() {
   `);
   app.appendChild(home);
   home.querySelector('#play-mul').onclick = () => renderMultiplicationMenu();
-  home.querySelector('#play-shapes').onclick = () => startRound('shapes');
-  home.querySelector('#play-triangles').onclick = () => startRound('triangles');
+  home.querySelector('#play-geo').onclick = () => renderGeometryMenu();
   home.querySelector('#play-division').onclick = () => startRound('division');
   home.querySelector('#play-primes').onclick = () => startRound('primes');
   home.querySelector('#play-fractions').onclick = () => startRound('fractions');
@@ -398,6 +396,27 @@ function renderHome() {
   };
   home.querySelector('#settings').onclick = () => renderSettings();
   syncNow(false);   // opportunistic push when the app is opened (if a URL is set)
+}
+
+function renderGeometryMenu() {
+  app.innerHTML = '';
+  const view = el(`
+    <div class="home mul-menu">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <h1 class="title">🔷 <b>גיאומטריה</b></h1>
+        <span style="width:52px"></span>
+      </div>
+      <div class="mode-buttons mul-mode-buttons">
+        <button class="btn btn--big btn--coral" id="play-shapes">🔷 צורות</button>
+        <button class="btn btn--big" id="play-triangles">📐 משולשים</button>
+      </div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderHome();
+  view.querySelector('#play-shapes').onclick = () => startRound('shapes');
+  view.querySelector('#play-triangles').onclick = () => startRound('triangles');
 }
 
 function renderMultiplicationMenu() {
