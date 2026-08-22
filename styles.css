@@ -360,6 +360,21 @@ html, body {
   .answers--two { grid-template-columns: 1fr 1fr !important; max-width: 520px; margin: 0 auto; width: 100%; }
 }
 
+/* ---------- number drill ---------- */
+.number-picker { display: grid; grid-template-columns: repeat(5, 1fr); gap: clamp(8px,1.6vh,14px); width: 100%; max-width: 420px; }
+.number-tile { font-size: clamp(26px,5vh,40px); font-weight: 900; min-height: clamp(58px,9vh,86px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 0; }
+.tile-x { font-size: 0.45em; font-weight: 700; opacity: 0.7; line-height: 1; }
+.drill-progress { font-size: clamp(16px,2.8vh,22px); font-weight: 800; color: var(--ink); }
+.drill-question { font-size: clamp(44px,10vh,80px); font-weight: 900; color: var(--ink); text-align: center; }
+.drill-table-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; width: 100%; max-width: 340px; margin: 0 auto; font-size: clamp(14px,2.4vh,18px); }
+.drill-row { padding: 3px 6px; border-radius: 8px; font-weight: 700; text-align: start; }
+.drill-fast { background: #d4f5e9; color: #1a7a5a; }
+.drill-slow { background: #fff8d0; color: #7a6000; }
+.drill-retry { background: #ffe8cc; color: #8a4000; }
+.drill-end-buttons { display: flex; gap: 12px; width: 100%; justify-content: center; }
+.drill-end-buttons .btn { flex: 1; max-width: 180px; }
+@media (min-width: 600px) { .number-picker { max-width: 480px; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
   .dragon-sprite { animation: none !important; }

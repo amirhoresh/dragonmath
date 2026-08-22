@@ -40,19 +40,19 @@ let state = load();
 const TOPIC_LABEL = {
   count: 'Multiplication', pop: 'Speed (Bubble Pop)', division: 'Division',
   primes: 'Primes', shapes: 'Shapes', triangles: 'Triangles', fractions: 'Fractions',
-  tables: 'Times Tables (timed)',
+  tables: 'Times Tables (timed)', drill: 'Number Drill',
 };
 
 // ---------- daily craving ----------
-const CRAVING_MODES = ['count','pop','tables','division','primes','shapes','triangles','fractions'];
+const CRAVING_MODES = ['count','pop','tables','drill','division','primes','shapes','triangles','fractions'];
 const CRAVING_HE = {
-  count: 'כפל בנקודות', pop: 'בועות מהירות', tables: 'לוח הכפל',
+  count: 'כפל בנקודות', pop: 'בועות מהירות', tables: 'לוח הכפל', drill: 'אלוף המספרים',
   division: 'חילוק', primes: 'מספרים ראשוניים',
   shapes: 'צורות', triangles: 'משולשים', fractions: 'שברים',
 };
 // which home button to highlight (null = direct button id)
 const CRAVING_HOME_BTN = {
-  count: 'play-mul', pop: 'play-mul', tables: 'play-mul',
+  count: 'play-mul', pop: 'play-mul', tables: 'play-mul', drill: 'play-mul',
   shapes: 'play-geo', triangles: 'play-geo',
   division: 'play-division', primes: 'play-primes', fractions: 'play-fractions',
 };
@@ -289,6 +289,7 @@ function answerOptions(answer) {
 // ---------- round controller (stop rule combo D) ----------
 const ROUND = { maxProblems: 12, maxMs: 5 * 60 * 1000, maxWrongStreak: 3 };
 let round = null;
+let drill = null;
 
 function startRound(mode) {
   audio.ensure(); // first user gesture — unlock audio
@@ -462,11 +463,12 @@ function renderMultiplicationMenu() {
         <h1 class="title">✖️ <b>כפל</b></h1>
         <span style="width:52px"></span>
       </div>
-      ${!cravingDone() && ['count','pop','tables'].includes(todayCraving()) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[todayCraving()]}</b>! ⭐x2</div>` : ''}
+      ${!cravingDone() && ['count','pop','tables','drill'].includes(todayCraving()) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[todayCraving()]}</b>! ⭐x2</div>` : ''}
       <div class="mode-buttons mul-mode-buttons">
         <button class="btn btn--big btn--teal${!cravingDone() && todayCraving()==='count' ? ' btn--craving' : ''}" id="play-count">🔢 כפל בנקודות</button>
         <button class="btn btn--big btn--pink${!cravingDone() && todayCraving()==='pop' ? ' btn--craving' : ''}" id="play-pop">⚡ בועות מהירות</button>
         <button class="btn btn--big${!cravingDone() && todayCraving()==='tables' ? ' btn--craving' : ''}" id="play-tables">🏆 לוח הכפל</button>
+        <button class="btn btn--big btn--coral${!cravingDone() && todayCraving()==='drill' ? ' btn--craving' : ''}" id="play-drill">🏅 אלוף המספרים</button>
       </div>
     </div>
   `);
@@ -475,6 +477,170 @@ function renderMultiplicationMenu() {
   view.querySelector('#play-count').onclick = () => startRound('count');
   view.querySelector('#play-pop').onclick = () => startRound('pop');
   view.querySelector('#play-tables').onclick = () => startTables(state.tablesLevel || 1);
+  view.querySelector('#play-drill').onclick = () => renderTablePicker();
+}
+
+// ---------- number drill (per-number table trainer) ----------
+const DRILL_TIME = 5000;  // ms per question
+const DRILL_FAST = 2500;  // ms threshold for "fast" answer
+
+function drillTableOptions(n, answer) {
+  const all = Array.from({length: 10}, (_, i) => n * (i + 1));
+  const wrong = all.filter(x => x !== answer);
+  for (let i = wrong.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [wrong[i], wrong[j]] = [wrong[j], wrong[i]]; }
+  const opts = [answer, ...wrong.slice(0, 3)];
+  for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
+  return opts;
+}
+
+function renderTablePicker() {
+  round = null; drill = null;
+  app.innerHTML = '';
+  const TILE_COLORS = ['btn--teal','btn--pink','btn--coral','','btn--teal','btn--pink','btn--coral','','btn--teal','btn--pink'];
+  const tiles = Array.from({length: 10}, (_, i) => {
+    const n = i + 1;
+    return `<button class="btn number-tile ${TILE_COLORS[i]}" data-n="${n}">${n}<span class="tile-x">×</span></button>`;
+  }).join('');
+  const view = el(`
+    <div class="home mul-menu">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <h1 class="title">🏅 <b>אלוף המספרים</b></h1>
+        <span style="width:52px"></span>
+      </div>
+      <p class="subtitle" style="margin:0 0 4px">בחרי מספר לאימון:</p>
+      <div class="number-picker">${tiles}</div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderMultiplicationMenu();
+  view.querySelectorAll('[data-n]').forEach(btn => {
+    btn.onclick = () => startTableDrill(parseInt(btn.dataset.n, 10));
+  });
+}
+
+function startTableDrill(n) {
+  audio.ensure();
+  const queue = Array.from({length: 10}, (_, i) => i + 1);
+  for (let i = queue.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [queue[i], queue[j]] = [queue[j], queue[i]]; }
+  drill = { n, queue, results: {}, perfect: true, starsEarned: 0 };
+  round = { mode: 'drill', starsEarned: 0 };
+  renderDrillQuestion();
+}
+
+function renderDrillQuestion() {
+  if (!drill || drill.queue.length === 0) { renderDrillEnd(); return; }
+  const { n, queue, results } = drill;
+  const k = queue[0];
+  const answer = n * k;
+  const opts = drillTableOptions(n, answer);
+  const done = Object.keys(results).length;
+
+  clearDrillTimer();
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <div class="drill-progress">${done}/10</div>
+        <span style="width:52px"></span>
+      </div>
+      <div class="timer-bar"><i id="drill-timer-i" style="width:100%;transition:width ${DRILL_TIME}ms linear"></i></div>
+      <div class="stage">
+        <div class="drill-question">${n} × ${k} = ?</div>
+      </div>
+      <div class="answers">
+        ${opts.map(o => `<button class="btn btn--ghost answer-btn" data-val="${o}">${o}</button>`).join('')}
+      </div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => { clearDrillTimer(); renderTablePicker(); };
+  drill.questionStart = Date.now();
+  requestAnimationFrame(() => { const ti = view.querySelector('#drill-timer-i'); if (ti) ti.style.width = '0%'; });
+  drill._timer = setTimeout(() => onDrillAnswer(false, false, answer, k, null), DRILL_TIME);
+  view.querySelectorAll('.answer-btn').forEach(btn => {
+    btn.onclick = () => {
+      const chosen = parseInt(btn.dataset.val, 10);
+      onDrillAnswer(chosen === answer, Date.now() - drill.questionStart < DRILL_FAST, answer, k, btn);
+    };
+  });
+}
+
+function clearDrillTimer() {
+  if (drill && drill._timer) { clearTimeout(drill._timer); drill._timer = null; }
+}
+
+function onDrillAnswer(correct, fast, answer, k, fromEl) {
+  clearDrillTimer();
+  if (!drill) return;
+  app.querySelectorAll('.answer-btn').forEach(b => {
+    b.disabled = true;
+    if (parseInt(b.dataset.val, 10) === answer) b.classList.add('correct');
+    else if (!correct && b === fromEl) b.classList.add('wrong');
+  });
+  const { n } = drill;
+  if (correct) {
+    audio.correct();
+    const alreadyWrong = drill.results[k] === 'wrong';
+    drill.results[k] = alreadyWrong ? 'retry-ok' : (fast ? 'fast' : 'slow');
+    drill.queue.shift();
+    let stars = alreadyWrong ? 1 : (fast ? 3 : 1);
+    if (!cravingDone() && todayCraving() === 'drill') stars *= 2;
+    drill.starsEarned += stars; round.starsEarned += stars;
+    state.stars += stars; dayBucket().s += stars; save(state);
+    if (fromEl) flyStars(stars, fromEl);
+    recordAttempt(n, k, true, alreadyWrong ? 1 : 0);
+    recordTopic('drill', alreadyWrong ? 1 : 0, true);
+    recordActivity(true, alreadyWrong ? 1 : 0);
+    setTimeout(() => renderDrillQuestion(), 600);
+  } else {
+    audio.wrong();
+    drill.perfect = false;
+    if (!drill.results[k]) drill.results[k] = 'wrong';
+    drill.queue.shift(); drill.queue.push(k);
+    recordAttempt(n, k, false, 1);
+    recordTopic('drill', 1, false);
+    recordActivity(false, 1);
+    setTimeout(() => renderDrillQuestion(), 800);
+  }
+}
+
+function renderDrillEnd() {
+  if (drill && drill.perfect) {
+    let bonus = 5;
+    if (!cravingDone() && todayCraving() === 'drill') bonus = 10;
+    drill.starsEarned += bonus; round.starsEarned += bonus;
+    state.stars += bonus; dayBucket().s += bonus; save(state);
+  }
+  satisfyCraving('drill');
+  state.lastPlayed = Date.now(); save(state); syncNow(true);
+  const { n, results, starsEarned, perfect } = drill;
+  const si = stageIndex(state.stars);
+  const rows = Array.from({length: 10}, (_, i) => {
+    const k = i + 1;
+    const r = results[k];
+    const icon = r === 'fast' ? '✅' : r === 'slow' ? '⚡' : r === 'retry-ok' ? '🔁' : '❓';
+    const cls = r === 'fast' ? 'drill-fast' : r === 'slow' ? 'drill-slow' : r === 'retry-ok' ? 'drill-retry' : '';
+    return `<div class="drill-row ${cls}">${icon} ${n} × ${k} = <b>${n * k}</b></div>`;
+  }).join('');
+  app.innerHTML = '';
+  const end = el(`
+    <div class="end">
+      <h2>${perfect ? '🏆 מושלם!' : 'כל הכבוד! 🎉'}</h2>
+      <div class="drill-table-summary">${rows}</div>
+      <div class="earned">צברת <span class="star">★</span> ${starsEarned} הפעם${perfect ? ' (+5 בונוס!)' : ''}</div>
+      <div class="stars-pill"><span class="star">★</span> ${state.stars} בסך הכול</div>
+      <div class="drill-end-buttons">
+        <button class="btn btn--big btn--teal" id="again">שוב! 🔁</button>
+        <button class="btn btn--big btn--pink" id="pick">בחרי מספר</button>
+      </div>
+    </div>
+  `);
+  app.appendChild(end);
+  end.querySelector('#again').onclick = () => startTableDrill(n);
+  end.querySelector('#pick').onclick = () => renderTablePicker();
+  confetti(perfect ? 55 : 35);
 }
 
 // ---------- parent area (progress + sync setup) ----------
