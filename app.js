@@ -528,21 +528,24 @@ function startTableDrill(n) {
   renderDrillPreview(n);
 }
 
+const PREVIEW_COLORS = ['#ff5db1','#7b4dff','#21c1a6','#ff9a3d','#ffd23f','#ff5db1','#7b4dff','#21c1a6','#ff9a3d','#ffd23f'];
+
 function renderDrillPreview(n) {
   app.innerHTML = '';
   const rows = Array.from({length: 10}, (_, i) => {
     const k = i + 1;
-    return `<div class="drill-preview-row">${n} × ${k} = <b>${n * k}</b></div>`;
+    const bg = PREVIEW_COLORS[i];
+    return `<div class="drill-preview-row" style="background:${bg}">${n} × ${k} = <b>${n * k}</b></div>`;
   }).join('');
   const view = el(`
-    <div class="round" style="justify-content:center">
+    <div class="round drill-preview-screen">
       <div class="topbar">
         <button class="mute" id="back" aria-label="חזרה">‹</button>
-        <h2 class="title" style="font-size:clamp(20px,4vh,32px)">לוח ${n}×</h2>
+        <h2 class="title" style="font-size:clamp(22px,4.5vh,36px)">✨ לוח ${n}</h2>
         <span style="width:52px"></span>
       </div>
       <div class="drill-preview-table">${rows}</div>
-      <button class="btn btn--big btn--teal" id="go" style="width:100%;max-width:320px">בואי נתחיל! ▶</button>
+      <button class="btn btn--big btn--teal" id="go">בואי נתחיל! ▶</button>
     </div>
   `);
   app.appendChild(view);
