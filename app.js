@@ -525,7 +525,29 @@ function startTableDrill(n) {
   for (let i = queue.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [queue[i], queue[j]] = [queue[j], queue[i]]; }
   drill = { n, queue, results: {}, perfect: true, starsEarned: 0 };
   round = { mode: 'drill', starsEarned: 0 };
-  renderDrillQuestion();
+  renderDrillPreview(n);
+}
+
+function renderDrillPreview(n) {
+  app.innerHTML = '';
+  const rows = Array.from({length: 10}, (_, i) => {
+    const k = i + 1;
+    return `<div class="drill-preview-row">${n} × ${k} = <b>${n * k}</b></div>`;
+  }).join('');
+  const view = el(`
+    <div class="round" style="justify-content:center">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <h2 class="title" style="font-size:clamp(20px,4vh,32px)">לוח ${n}×</h2>
+        <span style="width:52px"></span>
+      </div>
+      <div class="drill-preview-table">${rows}</div>
+      <button class="btn btn--big btn--teal" id="go" style="width:100%;max-width:320px">בואי נתחיל! ▶</button>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderTablePicker();
+  view.querySelector('#go').onclick = () => renderDrillQuestion();
 }
 
 function renderDrillQuestion() {

@@ -373,6 +373,8 @@ html, body {
 .drill-retry { background: #ffe8cc; color: #8a4000; }
 .drill-end-buttons { display: flex; gap: 12px; width: 100%; justify-content: center; }
 .drill-end-buttons .btn { flex: 1; max-width: 180px; }
+.drill-preview-table { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; width: 100%; max-width: 320px; margin: 0 auto; font-size: clamp(18px,3.2vh,26px); font-weight: 700; }
+.drill-preview-row { padding: 4px 8px; border-radius: 10px; background: #f0eaff; color: var(--ink); text-align: start; }
 @media (min-width: 600px) { .number-picker { max-width: 480px; } }
 
 @media (prefers-reduced-motion: reduce) {
