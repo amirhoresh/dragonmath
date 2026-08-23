@@ -481,8 +481,8 @@ function renderMultiplicationMenu() {
 }
 
 // ---------- number drill (per-number table trainer, multi-select) ----------
-const DRILL_TIME = 5000;  // ms per question
-const DRILL_FAST = 2500;  // ms threshold for "fast" answer
+const DRILL_TIME = 10000; // ms per question
+const DRILL_FAST = 5000;  // ms threshold for "fast" answer
 const TILE_COLORS = ['btn--teal','btn--pink','btn--coral','','btn--teal','btn--pink','btn--coral','','btn--teal','btn--pink'];
 const PREVIEW_COLORS = ['#ff5db1','#7b4dff','#21c1a6','#ff9a3d','#ffd23f','#ff5db1','#7b4dff','#21c1a6','#ff9a3d','#ffd23f'];
 
