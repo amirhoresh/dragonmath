@@ -373,9 +373,13 @@ html, body {
 .drill-retry { background: #ffe8cc; color: #8a4000; }
 .drill-end-buttons { display: flex; gap: 12px; width: 100%; justify-content: center; }
 .drill-end-buttons .btn { flex: 1; max-width: 180px; }
-.drill-preview-screen { gap: clamp(8px,1.6vh,16px); }
+.tile--selected { outline: 4px solid #f7c948; box-shadow: inset 0 0 0 3px #f7c948, var(--shadow); }
+.drill-preview-screen { gap: clamp(6px,1.2vh,12px); }
 .drill-preview-table { display: flex; flex-direction: column; gap: 5px; width: 100%; max-width: 320px; margin: 0 auto; flex: 1; min-height: 0; overflow-y: auto; }
-.drill-preview-row { padding: clamp(6px,1.2vh,10px) 18px; border-radius: 14px; color: #fff; font-size: clamp(18px,3vh,24px); font-weight: 900; text-align: center; white-space: nowrap; box-shadow: 0 3px 0 rgba(0,0,0,0.15); }
+.drill-preview-group { display: flex; flex-direction: column; gap: 5px; }
+.drill-preview-label { font-size: clamp(13px,2.2vh,17px); font-weight: 900; color: var(--purple); text-align: center; padding: 4px 0 2px; }
+.drill-preview-row { padding: clamp(5px,1vh,9px) 18px; border-radius: 14px; color: #fff; font-size: clamp(16px,2.8vh,22px); font-weight: 900; text-align: center; white-space: nowrap; box-shadow: 0 3px 0 rgba(0,0,0,0.15); }
+.drill-group-label { font-size: clamp(12px,2vh,15px); font-weight: 900; color: var(--purple); text-align: start; padding: 6px 0 2px; grid-column: 1 / -1; }
 @media (min-width: 600px) { .number-picker { max-width: 480px; } }
 
 @media (prefers-reduced-motion: reduce) {

@@ -480,9 +480,13 @@ function renderMultiplicationMenu() {
   view.querySelector('#play-drill').onclick = () => renderTablePicker();
 }
 
-// ---------- number drill (per-number table trainer) ----------
+// ---------- number drill (per-number table trainer, multi-select) ----------
 const DRILL_TIME = 5000;  // ms per question
 const DRILL_FAST = 2500;  // ms threshold for "fast" answer
+const TILE_COLORS = ['btn--teal','btn--pink','btn--coral','','btn--teal','btn--pink','btn--coral','','btn--teal','btn--pink'];
+const PREVIEW_COLORS = ['#ff5db1','#7b4dff','#21c1a6','#ff9a3d','#ffd23f','#ff5db1','#7b4dff','#21c1a6','#ff9a3d','#ffd23f'];
+
+function drillKey(n, k) { return n + 'x' + k; }
 
 function drillTableOptions(n, answer) {
   const all = Array.from({length: 10}, (_, i) => n * (i + 1));
@@ -496,7 +500,7 @@ function drillTableOptions(n, answer) {
 function renderTablePicker() {
   round = null; drill = null;
   app.innerHTML = '';
-  const TILE_COLORS = ['btn--teal','btn--pink','btn--coral','','btn--teal','btn--pink','btn--coral','','btn--teal','btn--pink'];
+  const selected = new Set();
   const tiles = Array.from({length: 10}, (_, i) => {
     const n = i + 1;
     return `<button class="btn number-tile ${TILE_COLORS[i]}" data-n="${n}">${n}<span class="tile-x">×</span></button>`;
@@ -508,43 +512,57 @@ function renderTablePicker() {
         <h1 class="title">🏅 <b>אלוף המספרים</b></h1>
         <span style="width:52px"></span>
       </div>
-      <p class="subtitle" style="margin:0 0 4px">בחרי מספר לאימון:</p>
+      <p class="subtitle" style="margin:0 0 4px">בחרי מספרים לאימון:</p>
       <div class="number-picker">${tiles}</div>
+      <button class="btn btn--big btn--teal" id="go" style="width:100%;max-width:340px;display:none">התחילי! ▶</button>
     </div>
   `);
   app.appendChild(view);
+  const goBtn = view.querySelector('#go');
   view.querySelector('#back').onclick = () => renderMultiplicationMenu();
   view.querySelectorAll('[data-n]').forEach(btn => {
-    btn.onclick = () => startTableDrill(parseInt(btn.dataset.n, 10));
+    btn.onclick = () => {
+      const n = parseInt(btn.dataset.n, 10);
+      if (selected.has(n)) { selected.delete(n); btn.classList.remove('tile--selected'); }
+      else { selected.add(n); btn.classList.add('tile--selected'); }
+      const nums = [...selected].sort((a,b) => a-b);
+      if (nums.length === 0) { goBtn.style.display = 'none'; }
+      else { goBtn.style.display = ''; goBtn.textContent = `התחילי! ▶  (${nums.join(', ')}×)`; }
+    };
   });
+  goBtn.onclick = () => startTableDrill([...selected].sort((a,b) => a-b));
 }
 
-function startTableDrill(n) {
+function startTableDrill(nums) {
   audio.ensure();
-  const queue = Array.from({length: 10}, (_, i) => i + 1);
-  for (let i = queue.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [queue[i], queue[j]] = [queue[j], queue[i]]; }
-  drill = { n, queue, results: {}, perfect: true, starsEarned: 0 };
+  // Build queue of {n,k} pairs for all selected numbers, shuffled together
+  const pairs = [];
+  nums.forEach(n => { for (let k = 1; k <= 10; k++) pairs.push({n, k}); });
+  for (let i = pairs.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [pairs[i], pairs[j]] = [pairs[j], pairs[i]]; }
+  drill = { nums, queue: pairs, results: {}, perfect: true, starsEarned: 0, total: pairs.length };
   round = { mode: 'drill', starsEarned: 0 };
-  renderDrillPreview(n);
+  renderDrillPreview(nums);
 }
 
-const PREVIEW_COLORS = ['#ff5db1','#7b4dff','#21c1a6','#ff9a3d','#ffd23f','#ff5db1','#7b4dff','#21c1a6','#ff9a3d','#ffd23f'];
-
-function renderDrillPreview(n) {
+function renderDrillPreview(nums) {
   app.innerHTML = '';
-  const rows = Array.from({length: 10}, (_, i) => {
-    const k = i + 1;
-    const bg = PREVIEW_COLORS[i];
-    return `<div class="drill-preview-row" style="background:${bg}">${n} × ${k} = <b>${n * k}</b></div>`;
+  // For each number, show its full table grouped
+  const sections = nums.map(n => {
+    const rows = Array.from({length: 10}, (_, i) => {
+      const k = i + 1;
+      return `<div class="drill-preview-row" style="background:${PREVIEW_COLORS[i]}">${n} × ${k} = <b>${n * k}</b></div>`;
+    }).join('');
+    return `<div class="drill-preview-group"><div class="drill-preview-label">לוח ${n}</div>${rows}</div>`;
   }).join('');
+  const title = nums.length === 1 ? `✨ לוח ${nums[0]}` : `✨ לוחות ${nums.join(' + ')}`;
   const view = el(`
     <div class="round drill-preview-screen">
       <div class="topbar">
         <button class="mute" id="back" aria-label="חזרה">‹</button>
-        <h2 class="title" style="font-size:clamp(22px,4.5vh,36px)">✨ לוח ${n}</h2>
+        <h2 class="title" style="font-size:clamp(20px,4vh,32px)">${title}</h2>
         <span style="width:52px"></span>
       </div>
-      <div class="drill-preview-table">${rows}</div>
+      <div class="drill-preview-table">${sections}</div>
       <button class="btn btn--big btn--teal" id="go">בואי נתחיל! ▶</button>
     </div>
   `);
@@ -555,8 +573,8 @@ function renderDrillPreview(n) {
 
 function renderDrillQuestion() {
   if (!drill || drill.queue.length === 0) { renderDrillEnd(); return; }
-  const { n, queue, results } = drill;
-  const k = queue[0];
+  const { queue, results, total } = drill;
+  const { n, k } = queue[0];
   const answer = n * k;
   const opts = drillTableOptions(n, answer);
   const done = Object.keys(results).length;
@@ -567,7 +585,7 @@ function renderDrillQuestion() {
     <div class="round">
       <div class="topbar">
         <button class="mute" id="back" aria-label="חזרה">‹</button>
-        <div class="drill-progress">${done}/10</div>
+        <div class="drill-progress">${done}/${total}</div>
         <span style="width:52px"></span>
       </div>
       <div class="timer-bar"><i id="drill-timer-i" style="width:100%;transition:width ${DRILL_TIME}ms linear"></i></div>
@@ -583,11 +601,11 @@ function renderDrillQuestion() {
   view.querySelector('#back').onclick = () => { clearDrillTimer(); renderTablePicker(); };
   drill.questionStart = Date.now();
   requestAnimationFrame(() => { const ti = view.querySelector('#drill-timer-i'); if (ti) ti.style.width = '0%'; });
-  drill._timer = setTimeout(() => onDrillAnswer(false, false, answer, k, null), DRILL_TIME);
+  drill._timer = setTimeout(() => onDrillAnswer(false, false, n, k, answer, null), DRILL_TIME);
   view.querySelectorAll('.answer-btn').forEach(btn => {
     btn.onclick = () => {
       const chosen = parseInt(btn.dataset.val, 10);
-      onDrillAnswer(chosen === answer, Date.now() - drill.questionStart < DRILL_FAST, answer, k, btn);
+      onDrillAnswer(chosen === answer, Date.now() - drill.questionStart < DRILL_FAST, n, k, answer, btn);
     };
   });
 }
@@ -596,7 +614,7 @@ function clearDrillTimer() {
   if (drill && drill._timer) { clearTimeout(drill._timer); drill._timer = null; }
 }
 
-function onDrillAnswer(correct, fast, answer, k, fromEl) {
+function onDrillAnswer(correct, fast, n, k, answer, fromEl) {
   clearDrillTimer();
   if (!drill) return;
   app.querySelectorAll('.answer-btn').forEach(b => {
@@ -604,11 +622,11 @@ function onDrillAnswer(correct, fast, answer, k, fromEl) {
     if (parseInt(b.dataset.val, 10) === answer) b.classList.add('correct');
     else if (!correct && b === fromEl) b.classList.add('wrong');
   });
-  const { n } = drill;
+  const rk = drillKey(n, k);
   if (correct) {
     audio.correct();
-    const alreadyWrong = drill.results[k] === 'wrong';
-    drill.results[k] = alreadyWrong ? 'retry-ok' : (fast ? 'fast' : 'slow');
+    const alreadyWrong = drill.results[rk] === 'wrong';
+    drill.results[rk] = alreadyWrong ? 'retry-ok' : (fast ? 'fast' : 'slow');
     drill.queue.shift();
     let stars = alreadyWrong ? 1 : (fast ? 3 : 1);
     if (!cravingDone() && todayCraving() === 'drill') stars *= 2;
@@ -622,8 +640,8 @@ function onDrillAnswer(correct, fast, answer, k, fromEl) {
   } else {
     audio.wrong();
     drill.perfect = false;
-    if (!drill.results[k]) drill.results[k] = 'wrong';
-    drill.queue.shift(); drill.queue.push(k);
+    if (!drill.results[rk]) drill.results[rk] = 'wrong';
+    drill.queue.shift(); drill.queue.push({n, k});
     recordAttempt(n, k, false, 1);
     recordTopic('drill', 1, false);
     recordActivity(false, 1);
@@ -640,20 +658,24 @@ function renderDrillEnd() {
   }
   satisfyCraving('drill');
   state.lastPlayed = Date.now(); save(state); syncNow(true);
-  const { n, results, starsEarned, perfect } = drill;
+  const { nums, results, starsEarned, perfect } = drill;
   const si = stageIndex(state.stars);
-  const rows = Array.from({length: 10}, (_, i) => {
-    const k = i + 1;
-    const r = results[k];
-    const icon = r === 'fast' ? '✅' : r === 'slow' ? '⚡' : r === 'retry-ok' ? '🔁' : '❓';
-    const cls = r === 'fast' ? 'drill-fast' : r === 'slow' ? 'drill-slow' : r === 'retry-ok' ? 'drill-retry' : '';
-    return `<div class="drill-row ${cls}">${icon} ${n} × ${k} = <b>${n * k}</b></div>`;
+  // Build summary grouped by number
+  const summaryGroups = nums.map(n => {
+    const rows = Array.from({length: 10}, (_, i) => {
+      const k = i + 1;
+      const r = results[drillKey(n, k)];
+      const icon = r === 'fast' ? '✅' : r === 'slow' ? '⚡' : r === 'retry-ok' ? '🔁' : '❓';
+      const cls = r === 'fast' ? 'drill-fast' : r === 'slow' ? 'drill-slow' : r === 'retry-ok' ? 'drill-retry' : '';
+      return `<div class="drill-row ${cls}">${icon} ${n} × ${k} = <b>${n * k}</b></div>`;
+    }).join('');
+    return nums.length > 1 ? `<div class="drill-group-label">לוח ${n}</div>${rows}` : rows;
   }).join('');
   app.innerHTML = '';
   const end = el(`
     <div class="end">
       <h2>${perfect ? '🏆 מושלם!' : 'כל הכבוד! 🎉'}</h2>
-      <div class="drill-table-summary">${rows}</div>
+      <div class="drill-table-summary">${summaryGroups}</div>
       <div class="earned">צברת <span class="star">★</span> ${starsEarned} הפעם${perfect ? ' (+5 בונוס!)' : ''}</div>
       <div class="stars-pill"><span class="star">★</span> ${state.stars} בסך הכול</div>
       <div class="drill-end-buttons">
@@ -663,7 +685,7 @@ function renderDrillEnd() {
     </div>
   `);
   app.appendChild(end);
-  end.querySelector('#again').onclick = () => startTableDrill(n);
+  end.querySelector('#again').onclick = () => startTableDrill(nums);
   end.querySelector('#pick').onclick = () => renderTablePicker();
   confetti(perfect ? 55 : 35);
 }
