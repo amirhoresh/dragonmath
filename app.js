@@ -40,20 +40,20 @@ let state = load();
 const TOPIC_LABEL = {
   count: 'Multiplication', pop: 'Speed (Bubble Pop)', division: 'Division',
   primes: 'Primes', shapes: 'Shapes', triangles: 'Triangles', fractions: 'Fractions',
-  tables: 'Times Tables (timed)', drill: 'Number Drill',
+  tables: 'Times Tables (timed)', drill: 'Number Drill', rect: 'Area & Perimeter',
 };
 
 // ---------- daily craving ----------
-const CRAVING_MODES = ['count','pop','tables','drill','division','primes','shapes','triangles','fractions'];
+const CRAVING_MODES = ['count','pop','tables','drill','division','primes','shapes','triangles','rect','fractions'];
 const CRAVING_HE = {
   count: 'כפל בנקודות', pop: 'בועות מהירות', tables: 'לוח הכפל', drill: 'אלוף המספרים',
   division: 'חילוק', primes: 'מספרים ראשוניים',
-  shapes: 'צורות', triangles: 'משולשים', fractions: 'שברים',
+  shapes: 'צורות', triangles: 'משולשים', rect: 'שטח והיקף', fractions: 'שברים',
 };
 // which home button to highlight (null = direct button id)
 const CRAVING_HOME_BTN = {
   count: 'play-mul', pop: 'play-mul', tables: 'play-mul', drill: 'play-mul',
-  shapes: 'play-geo', triangles: 'play-geo',
+  shapes: 'play-geo', triangles: 'play-geo', rect: 'play-geo',
   division: 'play-division', primes: 'play-primes', fractions: 'play-fractions',
 };
 function todayCraving() {
@@ -322,7 +322,7 @@ function roundShouldEnd() {
 
 let problem = null;
 function nextProblem(trivial) {
-  const makers = { shapes: makeShapeProblem, triangles: makeTriangleProblem, division: makeDivisionProblem, primes: makePrimeProblem, fractions: makeFractionProblem };
+  const makers = { shapes: makeShapeProblem, triangles: makeTriangleProblem, division: makeDivisionProblem, primes: makePrimeProblem, fractions: makeFractionProblem, rect: makeRectProblem };
   if (makers[round.mode]) {
     const make = makers[round.mode];
     if (!trivial && roundShouldEnd() && !round.ending) {
@@ -441,10 +441,11 @@ function renderGeometryMenu() {
         <h1 class="title">🔷 <b>גיאומטריה</b></h1>
         <span style="width:52px"></span>
       </div>
-      ${!cravingDone() && ['shapes','triangles'].includes(todayCraving()) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[todayCraving()]}</b>! ⭐x2</div>` : ''}
+      ${!cravingDone() && ['shapes','triangles','rect'].includes(todayCraving()) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[todayCraving()]}</b>! ⭐x2</div>` : ''}
       <div class="mode-buttons mul-mode-buttons">
         <button class="btn btn--big btn--coral${!cravingDone() && todayCraving()==='shapes' ? ' btn--craving' : ''}" id="play-shapes">🔷 צורות</button>
         <button class="btn btn--big${!cravingDone() && todayCraving()==='triangles' ? ' btn--craving' : ''}" id="play-triangles">📐 משולשים</button>
+        <button class="btn btn--big btn--teal${!cravingDone() && todayCraving()==='rect' ? ' btn--craving' : ''}" id="play-rect">📏 שטח והיקף</button>
       </div>
     </div>
   `);
@@ -452,6 +453,7 @@ function renderGeometryMenu() {
   view.querySelector('#back').onclick = () => renderHome();
   view.querySelector('#play-shapes').onclick = () => startRound('shapes');
   view.querySelector('#play-triangles').onclick = () => startRound('triangles');
+  view.querySelector('#play-rect').onclick = () => startRound('rect');
 }
 
 function renderMultiplicationMenu() {
@@ -816,6 +818,7 @@ function sizeDots(stage, dots, a, b) {
 function renderRound() {
   if (round.mode === 'triangles') return renderTriangles();
   if (round.mode === 'shapes') return renderShapes();
+  if (round.mode === 'rect') return renderRect();
   if (round.mode === 'division') return renderDivision();
   if (round.mode === 'primes') return renderPrimes();
   if (round.mode === 'fractions') return renderFractions();
@@ -1622,6 +1625,113 @@ function shuffleInPlace(arr) {
 
 function shapeSVG(pts, size, fill) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-hidden="true"><polygon points="${pts}" fill="${fill}" stroke="#2a2150" stroke-width="3" stroke-linejoin="round"/></svg>`;
+}
+
+// ---------- Area & Perimeter — rectangles and squares ----------
+function rectAnswerOptions(answer, a, b, subtype) {
+  const cands = new Set();
+  if (subtype === 'area') {
+    cands.add(2 * (a + b)); cands.add(a + b); cands.add(a * a); cands.add(b * b);
+    cands.add((a + 1) * b); cands.add(a * (b + 1));
+  } else {
+    cands.add(a * b); cands.add(a + b); cands.add(4 * a); cands.add(4 * b);
+    cands.add(2 * a + b); cands.add(a + 2 * b);
+  }
+  cands.delete(answer);
+  const wrong = [...cands].filter(x => x > 0);
+  let guard = 0;
+  const deltas = [2, -2, 4, -4, 6, -6, 8, -8];
+  while (wrong.length < 3 && guard < 24) { const c = answer + deltas[guard++ % deltas.length]; if (c > 0 && c !== answer && !wrong.includes(c)) wrong.push(c); }
+  const opts = [answer, ...wrong.slice(0, 3)];
+  for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
+  return opts;
+}
+
+function makeRectProblem(finalWin) {
+  let a, b, isSquare, subtype, guard = 0;
+  do {
+    isSquare = rand() < 0.4;
+    a = 2 + Math.floor(rand() * 10);
+    b = isSquare ? a : (2 + Math.floor(rand() * 10));
+    if (!isSquare && b === a) b = b < 11 ? b + 1 : b - 1;
+    subtype = finalWin ? 'area' : (rand() < 0.5 ? 'area' : 'perimeter');
+  } while (recentHas(`re:${subtype}:${Math.min(a,b)}x${Math.max(a,b)}`, 4) && guard++ < 14);
+  remember(`re:${subtype}:${Math.min(a,b)}x${Math.max(a,b)}`);
+  const answer = subtype === 'area' ? a * b : 2 * (a + b);
+  return { kind: 'rect', subtype, isSquare, a, b, answer, options: rectAnswerOptions(answer, a, b, subtype), tries: 0, locked: false, finalWin };
+}
+
+function rectSVG(a, b, isSquare) {
+  const W = 260, H = 180, maxW = 160, maxH = 110;
+  let rw, rh;
+  if (isSquare) { rw = rh = Math.min(maxW, maxH); }
+  else {
+    const ratio = a / b;
+    if (ratio > maxW / maxH) { rw = maxW; rh = Math.round(maxW / ratio); }
+    else { rh = maxH; rw = Math.round(maxH * ratio); }
+    rw = Math.max(rw, 40); rh = Math.max(rh, 40);
+  }
+  const rx = (W - rw) / 2, ry = (H - rh) / 2;
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+    <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="#e8f0ff" stroke="#7b4dff" stroke-width="3.5" rx="5"/>
+    <text x="${rx + rw/2}" y="${ry - 8}" text-anchor="middle" font-size="22" font-weight="900" fill="#ff5db1">${a}</text>
+    <text x="${rx + rw + 12}" y="${ry + rh/2 + 8}" text-anchor="start" font-size="22" font-weight="900" fill="#ff5db1">${b}</text>
+  </svg>`;
+}
+
+function renderRect() {
+  const p = problem;
+  const shapeName = p.isSquare ? 'ריבוע' : 'מלבן';
+  const qText = p.subtype === 'area' ? `מה ה<b>שטח</b> של ה${shapeName}?` : `מה ה<b>היקף</b> של ה${shapeName}?`;
+  const formula = p.subtype === 'area'
+    ? (p.isSquare ? 'שטח = צלע × צלע' : 'שטח = אורך × רוחב')
+    : (p.isSquare ? 'היקף = 4 × צלע' : 'היקף = 2 × (אורך + רוחב)');
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text" style="font-size:clamp(18px,3.4vh,26px)">${qText}</p>
+        <div class="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : formula}</div>
+      </div>
+      <div class="shape-stage">${rectSVG(p.a, p.b, p.isSquare)}</div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  p.options.forEach(opt => {
+    const b = el(`<button class="btn answer" data-correct="${opt === p.answer}">${opt}</button>`);
+    b.onclick = () => chooseRect(opt, b);
+    view.querySelector('#answers').appendChild(b);
+  });
+}
+
+function chooseRect(opt, btn) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  if (opt === p.answer) {
+    btn.classList.add('correct');
+    commitCorrect(p, btn);
+    hint.textContent = p.tries === 0 ? 'כל הכבוד! ⭐⭐⭐' : 'יפה! ⭐';
+    setTimeout(() => nextProblem(false), 900);
+  } else {
+    p.tries++; audio.wrong(); btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 350);
+    if (p.tries >= 2) {
+      const {a, b, isSquare, subtype, answer} = p;
+      hint.textContent = subtype === 'area'
+        ? (isSquare ? `שטח = ${a} × ${a} = ${answer}` : `שטח = ${a} × ${b} = ${answer}`)
+        : (isSquare ? `היקף = 4 × ${a} = ${answer}` : `היקף = 2 × (${a} + ${b}) = ${answer}`);
+      const right = document.querySelector('[data-correct="true"]');
+      if (right) right.classList.add('correct');
+      commitWrongReveal(p);
+      showContinue();
+    } else {
+      hint.textContent = 'כמעט! עוד ניסיון אחד';
+    }
+  }
 }
 
 function makeShapeProblem(finalWin) {
