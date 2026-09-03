@@ -947,6 +947,7 @@ function roundTopbar() {
   const combo = round.combo >= 2 ? `<div class="combo">🔥 ×${round.combo}</div>` : '';
   return `
     <div class="topbar">
+      <button class="mute" id="round-back" aria-label="חזרה">‹</button>
       <div class="progress"><i style="width:${pct}%"></i></div>
       ${combo}
       <div class="left-count">${left} left</div>
@@ -3290,6 +3291,26 @@ window.addEventListener('resize', () => {
   if (round && round.mode === 'count' && problem && problem.a) {
     const stage = document.querySelector('.round .stage');
     sizeDots(stage, document.getElementById('dots'), problem.a, problem.b);
+  }
+});
+
+// ---------- round back-navigation ----------
+const ROUND_BACK = {
+  count: renderMultiplicationMenu, pop: renderMultiplicationMenu,
+  tables: renderMultiplicationMenu, drill: renderMultiplicationMenu,
+  division: renderCalcMenu, oporder: renderCalcMenu, bignum: renderCalcMenu,
+  primes: renderNumbersMenu, factors: renderNumbersMenu, numline: renderNumbersMenu,
+  shapes: renderGeometryMenu, triangles: renderGeometryMenu,
+  rect: renderGeometryMenu, quads: renderGeometryMenu,
+  fractions: renderHome,
+  review: renderReviewMenu,
+};
+
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#round-back') && round) {
+    const mode = round.mode;
+    round = null;
+    (ROUND_BACK[mode] || renderHome)();
   }
 });
 
