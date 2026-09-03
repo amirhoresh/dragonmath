@@ -1248,11 +1248,11 @@ function revealAllRows() {
 // Inverse of the times tables, no remainders. "Split N dots into R equal rows —
 // how many in each row?" Reuses the Build & Count dot array + reveal.
 function makeDivisionProblem(finalWin) {
-  const easy = finalWin || round.index === 0;
-
   // subtypes: basic(×-table), medium(quotient 11-19), long(quotient 21-49, 3-digit),
   //           xlarge(4-digit ÷ 1-digit), div2(3-digit ÷ 2-digit), remainder(with שארית)
   const divFilter = round.divFilter || 'all';
+  // First question is always easy ONLY for 'all' mix (softens entry). Specific filters apply from question 1.
+  const easy = finalWin || (round.index === 0 && divFilter === 'all');
   let divType = 'basic';
   if (!easy) {
     if (divFilter === 'basic') {
