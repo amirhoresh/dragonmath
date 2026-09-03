@@ -2471,14 +2471,15 @@ function makeNumlineProblem(finalWin) {
   const type = easy ? 'simple' : ['simple','simple','mixed','decimal'][Math.floor(rand()*4)];
 
   if (type === 'simple') {
-    const dOpts = easy ? [2,4] : [2,3,4,5,6,8];
+    const dOpts = easy ? [2,3,4] : [2,3,4,5,6,8];
     const d = dOpts[Math.floor(rand()*dOpts.length)], n = ri(1, d-1);
-    const wrong = [];
-    for (const c of [1,d-1,Math.round(d/2),n-1,n+1,n+2].filter(x=>x>0&&x<d&&x!==n)) {
-      if (!wrong.includes(c)) wrong.push(c); if (wrong.length>=3) break;
-    }
-    let e=1; while(wrong.length<3){const w=(n+e)%d||1;if(w!==n&&!wrong.includes(w))wrong.push(w);e++;}
-    const options = shuffleInPlace([{n,d,correct:true},...wrong.slice(0,3).map(wn=>({n:wn,d,correct:false}))]);
+    const rightVal = n / d;
+    // build pool of nearby fractions from common denominators, sorted by proximity
+    const pool = [];
+    for (const pd of [2,3,4,5,6,8,10]) for (let pn=1; pn<pd; pn++) if (Math.abs(pn/pd-rightVal)>0.01) pool.push({n:pn,d:pd});
+    pool.sort((a,b) => Math.abs(a.n/a.d-rightVal) - Math.abs(b.n/b.d-rightVal));
+    const wrong = pool.slice(0,3);
+    const options = shuffleInPlace([{n,d,correct:true},...wrong.map(o=>({...o,correct:false}))]);
     return {kind:'numline', type, n, d, rangeEnd:1, options, tries:0, locked:false, finalWin};
   }
 
