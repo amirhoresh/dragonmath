@@ -21,6 +21,7 @@ const defaultSave = () => ({
   lastSync: 0,
   tablesLevel: 1,      // current level in the timed Tables game
   craveDone: '',        // todayKey() when she satisfied today's craving
+  review: { sessions: [{},{},{},{},{}] }, // exam-review session progress
 });
 
 function load() {
@@ -41,20 +42,26 @@ const TOPIC_LABEL = {
   count: 'Multiplication', pop: 'Speed (Bubble Pop)', division: 'Division',
   primes: 'Primes', shapes: 'Shapes', triangles: 'Triangles', fractions: 'Fractions',
   tables: 'Times Tables (timed)', drill: 'Number Drill', rect: 'Area & Perimeter',
+  quads: 'Quadrilateral Properties', factors: 'Factor Pairs',
+  numline: 'Number Line', oporder: 'Order of Operations', bignum: 'Large Numbers',
 };
 
 // ---------- daily craving ----------
-const CRAVING_MODES = ['count','pop','tables','drill','division','primes','shapes','triangles','rect','fractions'];
+const CRAVING_MODES = ['count','pop','tables','drill','division','primes','shapes','triangles','rect','fractions','quads','factors','numline','oporder','bignum'];
 const CRAVING_HE = {
   count: 'כפל בנקודות', pop: 'בועות מהירות', tables: 'לוח הכפל', drill: 'אלוף המספרים',
   division: 'חילוק', primes: 'מספרים ראשוניים',
   shapes: 'צורות', triangles: 'משולשים', rect: 'שטח והיקף', fractions: 'שברים',
+  quads: 'תכונות מרובעים', factors: 'פירוק לגורמים',
+  numline: 'ציר מספרים', oporder: 'סדר פעולות', bignum: 'מספרים גדולים',
 };
 // which home button to highlight (null = direct button id)
 const CRAVING_HOME_BTN = {
   count: 'play-mul', pop: 'play-mul', tables: 'play-mul', drill: 'play-mul',
-  shapes: 'play-geo', triangles: 'play-geo', rect: 'play-geo',
-  division: 'play-division', primes: 'play-primes', fractions: 'play-fractions',
+  shapes: 'play-geo', triangles: 'play-geo', rect: 'play-geo', quads: 'play-geo',
+  division: 'play-calc', primes: 'play-numbers', fractions: 'play-fractions',
+  factors: 'play-numbers', numline: 'play-numbers',
+  oporder: 'play-calc', bignum: 'play-calc',
 };
 function todayCraving() {
   const dayNum = Math.floor(Date.now() / 86400000);
@@ -272,18 +279,15 @@ function recordAttempt(a, b, correct, tries) {
 }
 
 // ---------- answer options ----------
-function answerOptions(answer) {
+function answerOptions(answer, spread = 3) {
   const opts = new Set([answer]);
   let guard = 0;
-  while (opts.size < 4 && guard++ < 50) {
-    const delta = [-2, -1, 1, 2, 3, -3][Math.floor(rand() * 6)];
+  while (opts.size < 4 && guard++ < 60) {
+    const delta = (Math.floor(rand() * spread) + 1) * (rand() < 0.5 ? 1 : -1);
     const cand = answer + delta;
-    if (cand > 0 && cand <= 120) opts.add(cand);
+    if (cand > 0) opts.add(cand);
   }
-  const arr = [...opts];
-  // shuffle
-  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
-  return arr;
+  return shuffleInPlace([...opts]);
 }
 
 // ---------- round controller (stop rule combo D) ----------
@@ -314,6 +318,7 @@ function remember(key) { (round.recent || (round.recent = [])).push(key); }
 
 function roundShouldEnd() {
   if (!round) return true;
+  if (round.reviewMode) return round.index >= 15;  // review: exactly 15 questions
   if (round.index >= ROUND.maxProblems) return true;
   if (Date.now() - round.startTs >= ROUND.maxMs) return true;
   if (round.wrongStreak >= ROUND.maxWrongStreak) return true;
@@ -322,7 +327,7 @@ function roundShouldEnd() {
 
 let problem = null;
 function nextProblem(trivial) {
-  const makers = { shapes: makeShapeProblem, triangles: makeTriangleProblem, division: makeDivisionProblem, primes: makePrimeProblem, fractions: makeFractionProblem, rect: makeRectProblem };
+  const makers = { shapes: makeShapeProblem, triangles: makeTriangleProblem, division: makeDivisionProblem, primes: makePrimeProblem, fractions: makeFractionProblem, rect: makeRectProblem, quads: makeQuadProblem, factors: makeFactorProblem, numline: makeNumlineProblem, oporder: makeOpOrderProblem, bignum: makeBignumProblem, review: makeReviewProblem };
   if (makers[round.mode]) {
     const make = makers[round.mode];
     if (!trivial && roundShouldEnd() && !round.ending) {
@@ -408,9 +413,10 @@ function renderHome() {
       <div class="mode-buttons">
         <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-mul' ? ' btn--craving' : ''}" id="play-mul">✖️ כפל</button>
         <button class="btn btn--big btn--pink${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-geo' ? ' btn--craving' : ''}" id="play-geo">🔷 גיאומטריה</button>
-        <button class="btn btn--big btn--coral${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-division' ? ' btn--craving' : ''}" id="play-division">➗ חילוק</button>
-        <button class="btn btn--big${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-primes' ? ' btn--craving' : ''}" id="play-primes">🧱 מספרים ראשוניים</button>
+        <button class="btn btn--big btn--coral${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-numbers' ? ' btn--craving' : ''}" id="play-numbers">🔢 מספרים</button>
+        <button class="btn btn--big${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-calc' ? ' btn--craving' : ''}" id="play-calc">🖩 חשבון</button>
         <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-fractions' ? ' btn--craving' : ''}" id="play-fractions">🍕 שברים</button>
+        <button class="btn btn--big btn--review" id="play-review">📝 חזרה למבחן</button>
       </div>
       <p class="subtitle">משחקים, לומדים — וספארקי גדל!</p>
     </div>
@@ -418,9 +424,10 @@ function renderHome() {
   app.appendChild(home);
   home.querySelector('#play-mul').onclick = () => renderMultiplicationMenu();
   home.querySelector('#play-geo').onclick = () => renderGeometryMenu();
-  home.querySelector('#play-division').onclick = () => startRound('division');
-  home.querySelector('#play-primes').onclick = () => startRound('primes');
+  home.querySelector('#play-numbers').onclick = () => renderNumbersMenu();
+  home.querySelector('#play-calc').onclick = () => renderCalcMenu();
   home.querySelector('#play-fractions').onclick = () => startRound('fractions');
+  home.querySelector('#play-review').onclick = () => renderReviewMenu();
   home.querySelector('#mute').onclick = (e) => {
     state.muted = !state.muted;
     save(state);
@@ -441,11 +448,12 @@ function renderGeometryMenu() {
         <h1 class="title">🔷 <b>גיאומטריה</b></h1>
         <span style="width:52px"></span>
       </div>
-      ${!cravingDone() && ['shapes','triangles','rect'].includes(todayCraving()) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[todayCraving()]}</b>! ⭐x2</div>` : ''}
+      ${!cravingDone() && ['shapes','triangles','rect','quads'].includes(todayCraving()) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[todayCraving()]}</b>! ⭐x2</div>` : ''}
       <div class="mode-buttons mul-mode-buttons">
         <button class="btn btn--big btn--coral${!cravingDone() && todayCraving()==='shapes' ? ' btn--craving' : ''}" id="play-shapes">🔷 צורות</button>
         <button class="btn btn--big${!cravingDone() && todayCraving()==='triangles' ? ' btn--craving' : ''}" id="play-triangles">📐 משולשים</button>
         <button class="btn btn--big btn--teal${!cravingDone() && todayCraving()==='rect' ? ' btn--craving' : ''}" id="play-rect">📏 שטח והיקף</button>
+        <button class="btn btn--big btn--purple${!cravingDone() && todayCraving()==='quads' ? ' btn--craving' : ''}" id="play-quads">🔲 תכונות מרובעים</button>
       </div>
     </div>
   `);
@@ -454,6 +462,154 @@ function renderGeometryMenu() {
   view.querySelector('#play-shapes').onclick = () => startRound('shapes');
   view.querySelector('#play-triangles').onclick = () => startRound('triangles');
   view.querySelector('#play-rect').onclick = () => startRound('rect');
+  view.querySelector('#play-quads').onclick = () => startRound('quads');
+}
+
+// ---------- חזרה למבחן — exam review sessions ----------
+const REVIEW_SESSION_COUNT = 5;
+
+function buildReviewQueue() {
+  // 15 questions per session: 6 fractions, 3 numline, 2 oporder, 2 bignum, 2 factors
+  return shuffleInPlace([
+    'fractions','fractions','fractions','fractions','fractions','fractions',
+    'numline','numline','numline',
+    'oporder','oporder',
+    'bignum','bignum',
+    'factors','factors',
+  ]);
+}
+
+function makeReviewProblem(finalWin) {
+  const idx = round.reviewQueueIdx || 0;
+  const type = round.reviewQueue[idx] || 'fractions';
+  round.reviewQueueIdx = idx + 1;
+  let p;
+  if (type === 'fractions') p = makeFractionProblem(finalWin);
+  else if (type === 'numline') p = makeNumlineProblem(finalWin);
+  else if (type === 'oporder') p = makeOpOrderProblem(finalWin);
+  else if (type === 'bignum') p = makeBignumProblem(finalWin);
+  else if (type === 'factors') p = makeFactorProblem(finalWin);
+  p.reviewType = type;
+  return p;
+}
+
+function startReview(sessionIdx) {
+  audio.ensure();
+  const queue = buildReviewQueue();
+  round = {
+    mode: 'review', reviewMode: true,
+    reviewSessionIdx: sessionIdx,
+    reviewQueue: queue, reviewQueueIdx: 0,
+    index: 0, correctCount: 0, starsEarned: 0,
+    wrongStreak: 0, combo: 0, startTs: Date.now(),
+    ending: false, recent: [],
+  };
+  nextProblem(true);
+}
+
+function renderReviewMenu() {
+  if (!state.review) state.review = {sessions: Array(REVIEW_SESSION_COUNT).fill(0).map(()=>({}))};
+  while (state.review.sessions.length < REVIEW_SESSION_COUNT) state.review.sessions.push({});
+  app.innerHTML = '';
+  const sessions = state.review.sessions;
+  const allDone = sessions.every(s=>s.done);
+  const cards = sessions.map((s,i) => {
+    const done = s.done;
+    const icon = done ? '✅' : '▶';
+    const stars = done && s.stars ? ` ★${s.stars}` : '';
+    return `<button class="btn btn--big review-session-btn${done?' review-done':''}" data-idx="${i}">${icon} פגישה ${i+1}${stars}</button>`;
+  }).join('');
+  const view = el(`
+    <div class="home mul-menu">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <h1 class="title">📝 <b>חזרה למבחן</b></h1>
+        <span style="width:52px"></span>
+      </div>
+      <p class="review-subtitle">כל פגישה — 15 שאלות בערך 5 דקות<br>שאלות מסוג המבחן, מעורבות</p>
+      ${allDone ? '<div class="craving-bubble craving-bubble--done">🏆 סיימת את כל הפגישות! כל הכבוד!</div>' : ''}
+      <div class="mode-buttons mul-mode-buttons">${cards}</div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderHome();
+  view.querySelectorAll('.review-session-btn').forEach(btn => {
+    btn.onclick = () => startReview(Number(btn.dataset.idx));
+  });
+}
+
+function renderReviewComplete(sessionIdx, starsEarned) {
+  app.innerHTML = '';
+  const nextIdx = sessionIdx + 1;
+  const hasNext = nextIdx < REVIEW_SESSION_COUNT;
+  const view = el(`
+    <div class="end">
+      <h2>פגישה ${sessionIdx+1} הושלמה! 🎉</h2>
+      <div class="earned">צברת <span class="star">★</span> ${starsEarned} כוכבים!</div>
+      <div class="stars-pill"><span class="star">★</span> ${state.stars} בסך הכול</div>
+      ${hasNext
+        ? `<button class="btn btn--big btn--teal" id="next-review">פגישה ${nextIdx+1} ←</button>`
+        : '<p style="font-size:1.3em;margin:12px 0">🏆 סיימת את כל הפגישות!</p>'
+      }
+      <button class="btn btn--big" id="review-menu">כל הפגישות</button>
+      <button class="btn" id="go-home">בית 🏠</button>
+    </div>
+  `);
+  app.appendChild(view);
+  if (hasNext) view.querySelector('#next-review').onclick = () => startReview(nextIdx);
+  view.querySelector('#review-menu').onclick = () => renderReviewMenu();
+  view.querySelector('#go-home').onclick = () => renderHome();
+  confetti(40);
+}
+
+function renderNumbersMenu() {
+  app.innerHTML = '';
+  const cr = todayCraving(), done = cravingDone();
+  const view = el(`
+    <div class="home mul-menu">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <h1 class="title">🔢 <b>מספרים</b></h1>
+        <span style="width:52px"></span>
+      </div>
+      ${!done && ['primes','factors','numline'].includes(cr) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[cr]}</b>! ⭐x2</div>` : ''}
+      <div class="mode-buttons mul-mode-buttons">
+        <button class="btn btn--big${!done && cr==='primes' ? ' btn--craving' : ''}" id="play-primes">🧱 מספרים ראשוניים</button>
+        <button class="btn btn--big btn--coral${!done && cr==='factors' ? ' btn--craving' : ''}" id="play-factors">🔍 פירוק לגורמים</button>
+        <button class="btn btn--big btn--teal${!done && cr==='numline' ? ' btn--craving' : ''}" id="play-numline">📏 ציר מספרים</button>
+      </div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderHome();
+  view.querySelector('#play-primes').onclick = () => startRound('primes');
+  view.querySelector('#play-factors').onclick = () => startRound('factors');
+  view.querySelector('#play-numline').onclick = () => startRound('numline');
+}
+
+function renderCalcMenu() {
+  app.innerHTML = '';
+  const cr = todayCraving(), done = cravingDone();
+  const view = el(`
+    <div class="home mul-menu">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <h1 class="title">🖩 <b>חשבון</b></h1>
+        <span style="width:52px"></span>
+      </div>
+      ${!done && ['division','oporder','bignum'].includes(cr) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[cr]}</b>! ⭐x2</div>` : ''}
+      <div class="mode-buttons mul-mode-buttons">
+        <button class="btn btn--big btn--coral${!done && cr==='division' ? ' btn--craving' : ''}" id="play-division">➗ חילוק</button>
+        <button class="btn btn--big btn--pink${!done && cr==='oporder' ? ' btn--craving' : ''}" id="play-oporder">🔢 סדר פעולות</button>
+        <button class="btn btn--big${!done && cr==='bignum' ? ' btn--craving' : ''}" id="play-bignum">🔭 מספרים גדולים</button>
+      </div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderHome();
+  view.querySelector('#play-division').onclick = () => startRound('division');
+  view.querySelector('#play-oporder').onclick = () => startRound('oporder');
+  view.querySelector('#play-bignum').onclick = () => startRound('bignum');
 }
 
 function renderMultiplicationMenu() {
@@ -819,6 +975,19 @@ function renderRound() {
   if (round.mode === 'triangles') return renderTriangles();
   if (round.mode === 'shapes') return renderShapes();
   if (round.mode === 'rect') return renderRect();
+  if (round.mode === 'quads') return renderQuad();
+  if (round.mode === 'factors') return renderFactors();
+  if (round.mode === 'numline') return renderNumline();
+  if (round.mode === 'oporder') return renderOpOrder();
+  if (round.mode === 'bignum') return renderBignum();
+  if (round.mode === 'review') {
+    const rt = problem.reviewType;
+    if (rt === 'fractions') return renderFractions();
+    if (rt === 'numline')   return renderNumline();
+    if (rt === 'oporder')   return renderOpOrder();
+    if (rt === 'bignum')    return renderBignum();
+    if (rt === 'factors')   return renderFactors();
+  }
   if (round.mode === 'division') return renderDivision();
   if (round.mode === 'primes') return renderPrimes();
   if (round.mode === 'fractions') return renderFractions();
@@ -1053,12 +1222,95 @@ function revealAllRows() {
 // how many in each row?" Reuses the Build & Count dot array + reveal.
 function makeDivisionProblem(finalWin) {
   const easy = finalWin || round.index === 0;
+
+  // subtypes: basic(×-table), medium(quotient 11-19), long(quotient 21-49, 3-digit),
+  //           xlarge(4-digit ÷ 1-digit), div2(3-digit ÷ 2-digit), remainder(with שארית)
+  let divType = 'basic';
+  if (!easy) {
+    const r = rand();
+    if      (r < 0.30) divType = 'basic';
+    else if (r < 0.48) divType = 'medium';
+    else if (r < 0.63) divType = 'long';
+    else if (r < 0.76) divType = 'xlarge';
+    else if (r < 0.88) divType = 'div2';
+    else               divType = 'remainder';
+  }
+
+  if (divType === 'medium') {
+    for (let t = 0; t < 20; t++) {
+      const q = 11 + Math.floor(rand() * 9); // 11..19
+      const d = 2 + Math.floor(rand() * 8);  // 2..9
+      const key = 'dvm:' + d + '/' + q;
+      if (t === 19 || !recentHas(key, 6)) {
+        remember(key);
+        return { divType, kind: 'div', a: d, dividend: d * q, answer: q, options: answerOptions(q, 4), tries: 0, locked: false, finalWin };
+      }
+    }
+  }
+
+  if (divType === 'long') {
+    for (let t = 0; t < 20; t++) {
+      const q = 21 + Math.floor(rand() * 29); // 21..49
+      const d = 2 + Math.floor(rand() * 8);
+      const key = 'dvl:' + d + '/' + q;
+      if (t === 19 || !recentHas(key, 6)) {
+        remember(key);
+        return { divType, kind: 'div', a: d, dividend: d * q, answer: q, options: answerOptions(q, 6), tries: 0, locked: false, finalWin };
+      }
+    }
+  }
+
+  if (divType === 'xlarge') {
+    // 4-digit dividend ÷ 1-digit, quotient 100..499
+    for (let t = 0; t < 20; t++) {
+      const q = 101 + Math.floor(rand() * 399); // 101..499, always 3-digit
+      const d = 2 + Math.floor(rand() * 8);
+      if (d * q > 9999) continue; // keep 4-digit
+      const key = 'dvx:' + d + '/' + q;
+      if (t === 19 || !recentHas(key, 6)) {
+        remember(key);
+        return { divType, kind: 'div', a: d, dividend: d * q, answer: q, options: answerOptions(q, 20), tries: 0, locked: false, finalWin };
+      }
+    }
+  }
+
+  if (divType === 'div2') {
+    // 3-digit ÷ 2-digit, divisor 12..25, quotient 8..18
+    for (let t = 0; t < 20; t++) {
+      const d = 12 + Math.floor(rand() * 14); // 12..25
+      const q = 8  + Math.floor(rand() * 11); // 8..18
+      const key = 'dv2:' + d + '/' + q;
+      if (t === 19 || !recentHas(key, 6)) {
+        remember(key);
+        return { divType, kind: 'div', a: d, dividend: d * q, answer: q, options: answerOptions(q, 4), tries: 0, locked: false, finalWin };
+      }
+    }
+  }
+
+  if (divType === 'remainder') {
+    // dividend ÷ divisor = quotient שארית remainder
+    for (let t = 0; t < 20; t++) {
+      const d = 3 + Math.floor(rand() * 7);  // 3..9
+      const q = 5 + Math.floor(rand() * 16); // 5..20
+      const r = 1 + Math.floor(rand() * (d - 1)); // 1..d-1
+      const dvd = d * q + r;
+      if (dvd > 199) continue;
+      const key = 'dvr:' + d + '/' + q + '+' + r;
+      if (t === 19 || !recentHas(key, 6)) {
+        remember(key);
+        const answer = `${q} שארית ${r}`;
+        return { divType, kind: 'div', a: d, dividend: dvd, answer, quotientNum: q, remainderNum: r,
+          options: remainderOptions(q, r, d), tries: 0, locked: false, finalWin };
+      }
+    }
+  }
+
+  // basic: weight by ×-fact weakness
   let divisor, quotient;
   if (easy) {
-    divisor = 2 + Math.floor(rand() * 2);    // 2..3 rows
-    quotient = 2 + Math.floor(rand() * 3);   // 2..4 per row
+    divisor = 2 + Math.floor(rand() * 2);
+    quotient = 2 + Math.floor(rand() * 3);
   } else {
-    // weight by the underlying ×-fact she misses; skip the trivial ÷1 / =1 cases
     const pool = [];
     for (let d = 2; d <= 10; d++) for (let q = 2; q <= 10; q++) pool.push([d, q]);
     const weights = pool.map(([d, q]) => factWeight(d, q));
@@ -1072,14 +1324,37 @@ function makeDivisionProblem(finalWin) {
   }
   remember('dv:' + divisor + '/' + quotient);
   return {
-    kind: 'div', a: divisor, b: quotient, dividend: divisor * quotient,
+    divType: 'basic', kind: 'div', a: divisor, b: quotient, dividend: divisor * quotient,
     answer: quotient, options: answerOptions(quotient),
     tries: 0, locked: false, finalWin,
   };
 }
 
+function remainderOptions(q, r, divisor) {
+  const correct = `${q} שארית ${r}`;
+  const tried = new Set([correct]);
+  const opts = [correct];
+  let guard = 0;
+  while (opts.length < 4 && guard++ < 60) {
+    const dq = Math.floor(rand() * 5) - 2; // -2..2
+    const dr = Math.floor(rand() * 5) - 2;
+    if (dq === 0 && dr === 0) continue;
+    const wq = q + dq, wr = r + dr;
+    if (wq < 1 || wr <= 0 || wr >= divisor) continue;
+    const s = `${wq} שארית ${wr}`;
+    if (!tried.has(s)) { tried.add(s); opts.push(s); }
+  }
+  // fallback: vary q only
+  for (let i = 1; opts.length < 4; i++) {
+    const s = `${q + i * 2} שארית ${r}`;
+    if (!tried.has(s)) { tried.add(s); opts.push(s); }
+  }
+  return shuffleInPlace(opts);
+}
+
 function renderDivision() {
   const p = problem;
+  if (p.divType !== 'basic') return renderDivAdvanced();
   app.innerHTML = '';
   const view = el(`
     <div class="round">
@@ -1103,6 +1378,80 @@ function renderDivision() {
   });
 }
 
+function renderDivAdvanced() {
+  const p = problem;
+  const subMap = {
+    medium:    `${p.dividend} ÷ ${p.a} — עבדי בשלבים`,
+    long:      `פרקי את ${p.dividend}: כמה פעמים ${p.a} נכנס?`,
+    xlarge:    `חילוק ארוך — ${p.dividend} ÷ ${p.a}`,
+    div2:      `${p.dividend} ÷ ${p.a} — נחשי וכפלי לבדיקה`,
+    remainder: `${p.dividend} ÷ ${p.a} — מה המנה ומה השארית?`,
+  };
+  const questionText = p.divType === 'remainder'
+    ? `<span class="a">${p.dividend}</span> ÷ <span class="b">${p.a}</span> = ?`
+    : `<span class="a">${p.dividend}</span> ÷ <span class="b">${p.a}</span> = ?`;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">${questionText}</p>
+        <div class="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : (subMap[p.divType] || '')}</div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.options.forEach((opt) => {
+    const b = el(`<button class="btn answer">${opt}</button>`);
+    b.onclick = () => chooseDivAnswer(opt, b);
+    answers.appendChild(b);
+  });
+}
+
+function divAdvancedHint(p) {
+  const { dividend, a: divisor, divType } = p;
+
+  if (divType === 'remainder') {
+    const { quotientNum: q, remainderNum: r } = p;
+    return `<div style="text-align:center;line-height:2">` +
+      `${divisor}×${q}=${divisor*q}, ו-${dividend}-${divisor*q}=<b>${r}</b><br>` +
+      `תשובה: <b>${q} שארית ${r}</b></div>`;
+  }
+
+  if (divType === 'xlarge') {
+    const q = p.answer;
+    const bigQ = Math.floor(q / 100) * 100;
+    const smallQ = q - bigQ;
+    const bigD = bigQ * divisor;
+    const smallD = dividend - bigD;
+    const steps = smallQ === 0
+      ? `${bigD} ÷ ${divisor} = ${bigQ}`
+      : `${bigD} ÷ ${divisor} = <b>${bigQ}</b><br>${smallD} ÷ ${divisor} = <b>${smallQ}</b><br>סה"כ: ${bigQ}+${smallQ} = <b>${q}</b>`;
+    return `<div style="text-align:center;line-height:2">${steps}</div>`;
+  }
+
+  if (divType === 'div2') {
+    const q = p.answer;
+    return `<div style="text-align:center;line-height:2">` +
+      `בדיקה: ${q} × ${divisor} = <b>${dividend}</b></div>`;
+  }
+
+  // medium / long: partial-quotients decomposition
+  const q = p.answer;
+  const tens = Math.floor(q / 10) * 10;
+  const ones = q % 10;
+  let steps;
+  if (ones === 0) {
+    steps = `${dividend} = ${tens} × ${divisor}`;
+  } else {
+    steps = `${tens * divisor} ÷ ${divisor} = <b>${tens}</b><br>${ones * divisor} ÷ ${divisor} = <b>${ones}</b><br>סה"כ: ${tens}+${ones} = <b>${q}</b>`;
+  }
+  return `<div style="text-align:center;line-height:2">התשובה: <b>${q}</b><br><span style="font-size:0.85em;color:var(--gray)">${steps}</span></div>`;
+}
+
 function chooseDivAnswer(opt, btn) {
   const p = problem;
   if (p.locked) return;
@@ -1119,8 +1468,13 @@ function chooseDivAnswer(opt, btn) {
     btn.classList.add('wrong');
     setTimeout(() => btn.classList.remove('wrong'), 350);
     if (p.tries >= 2) {
-      hint.textContent = `התשובה היא ${p.answer}. ${p.dividend} ÷ ${p.a} = ${p.answer} — בכל שורה ${p.answer}.`;
-      revealFullGrid(document.querySelector('.round .stage'), p.a, p.b);
+      const stage = document.querySelector('.round .stage');
+      if (stage) {
+        hint.textContent = `התשובה היא ${p.answer}. ${p.dividend} ÷ ${p.a} = ${p.answer} — בכל שורה ${p.answer}.`;
+        revealFullGrid(stage, p.a, p.b);
+      } else {
+        hint.innerHTML = divAdvancedHint(p);
+      }
       commitWrongReveal(p);
       showContinue();
     } else {
@@ -1287,19 +1641,106 @@ function fracOptions(p) {
   return shuffleInPlace([{ n: ans.n, d: ans.d, correct: true }, ...out.map((f) => ({ n: f.n, d: f.d, correct: false }))]);
 }
 
+function buildFracNew(subtype) {
+  const ri = (lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
+
+  if (subtype === 'fracOfNum') {
+    const dOpts = [2, 3, 4, 5, 8, 10];
+    const d = dOpts[Math.floor(rand() * dOpts.length)];
+    const n = ri(1, d - 1);
+    const k = ri(2, 10);
+    const baseNum = d * k, answer = n * k;
+    const wrong = [];
+    for (const c of [n*(k+1), n*(k-1>0?k-1:k+2), (n+1)*k, d*k, answer+n, answer+d]) {
+      if (c > 0 && c !== answer && !wrong.includes(c)) wrong.push(c);
+      if (wrong.length >= 3) break;
+    }
+    let e = 1; while (wrong.length < 3) { if (answer+e !== answer) wrong.push(answer+e); e++; }
+    const options = shuffleInPlace([{val:answer,correct:true},...wrong.slice(0,3).map(v=>({val:v,correct:false}))]);
+    return {subtype, n, d, baseNum, answer, options, cacheKey:`${n}/${d}x${k}`};
+  }
+
+  if (subtype === 'improper') {
+    const dir = rand() < 0.5 ? 'toMixed' : 'toImproper';
+    const d = ri(2, 8), w = ri(1, 4), n = ri(1, d - 1);
+    const numer = w * d + n;
+    let options;
+    if (dir === 'toMixed') {
+      const correct = {w, n, d, correct:true};
+      const wrong = [];
+      const cands = [{w,n:n===1?2:n-1,d},{w,n:n+1<d?n+1:1,d},{w:w+1,n,d},{w:Math.max(1,w-1),n,d},{w,n:d-1,d}];
+      for (const c of cands) {
+        if (c.n>0&&c.n<c.d&&!(c.w===w&&c.n===n&&c.d===d)&&!wrong.some(x=>x.w===c.w&&x.n===c.n&&x.d===c.d)) wrong.push(c);
+        if (wrong.length>=3) break;
+      }
+      let e=1; while(wrong.length<3){wrong.push({w:w+e+1,n,d});e++;}
+      options = shuffleInPlace([correct,...wrong.slice(0,3).map(c=>({...c,correct:false}))]);
+    } else {
+      const correct = {n:numer,d,correct:true};
+      const wrong = [];
+      const cands = [{n:numer+1,d},{n:numer-1,d},{n:w*d,d},{n:(w+1)*d+n,d},{n:numer,d:d+1}];
+      for (const c of cands) {
+        if (c.n>0&&c.d>1&&!(c.n===numer&&c.d===d)&&!wrong.some(x=>x.n===c.n&&x.d===c.d)) wrong.push(c);
+        if (wrong.length>=3) break;
+      }
+      let e=1; while(wrong.length<3){wrong.push({n:numer+e+1,d});e++;}
+      options = shuffleInPlace([correct,...wrong.slice(0,3).map(c=>({...c,correct:false}))]);
+    }
+    return {subtype, dir, w, n, d, numer, options, cacheKey:`${numer}/${d}${dir}`};
+  }
+
+  if (subtype === 'equiv') {
+    let n1, d1;
+    do { d1 = ri(2, 6); n1 = ri(1, d1-1); } while (gcd(n1,d1) > 1);
+    const k = ri(2, 5);
+    const n = n1*k, d = d1*k;
+    const ans = {n:n1, d:d1};
+    const wrong = [];
+    for (const c of [{n:n1+1,d:d1},{n:n1,d:d1+1},{n,d},{n:Math.max(1,n1-1),d:d1},{n:n1+1,d:d1+1}]) {
+      if (c.n>0&&c.d>1&&!(c.n===n1&&c.d===d1)&&!wrong.some(x=>x.n===c.n&&x.d===c.d)) wrong.push(c);
+      if (wrong.length>=3) break;
+    }
+    let e=2; while(wrong.length<3){wrong.push({n:n1+e,d:d1});e++;}
+    const options = shuffleInPlace([{...ans,correct:true},...wrong.slice(0,3).map(f=>({...f,correct:false}))]);
+    return {subtype, n, d, ans, options, cacheKey:`${n}/${d}`};
+  }
+
+  if (subtype === 'wholeFrac') {
+    const whole = ri(2, 6), d = ri(2, 7), n = ri(1, d-1);
+    const raw = {n:whole*n, d};
+    const ans = reduceFrac(raw.n, raw.d);
+    const wrong = [];
+    for (const c of [{n:raw.n,d:raw.d},{n:ans.n+1,d:ans.d},{n:ans.n,d:ans.d+1},{n:whole+n,d},{n:ans.n*2,d:ans.d}]) {
+      if (c.n>0&&c.d>1&&!fsame(c,ans)&&!wrong.some(x=>fsame(x,c))) wrong.push(c);
+      if (wrong.length>=3) break;
+    }
+    let e=1; while(wrong.length<3){const f={n:ans.n+e,d:ans.d};if(!fsame(f,ans))wrong.push(f);e++;}
+    const options = shuffleInPlace([{...ans,correct:true},...wrong.slice(0,3).map(f=>({...f,correct:false}))]);
+    return {subtype, whole, n, d, raw, ans, options, cacheKey:`${whole}x${n}/${d}`};
+  }
+}
+
 function makeFractionProblem(finalWin) {
   const easy = finalWin || round.index === 0;
-  const types = ['addSame', 'subSame', 'mul', 'addUnlike', 'subUnlike'];
+  const OLD = ['addSame', 'subSame', 'mul', 'addUnlike', 'subUnlike'];
+  const NEW = ['fracOfNum', 'improper', 'equiv', 'wholeFrac'];
+  // New types appear twice in the pool to give them equal weight vs 5 old types
+  const pool = easy ? ['addSame', 'fracOfNum'] : [...OLD, ...NEW, ...NEW];
   let p, key;
   for (let t = 0; t < 20; t++) {
-    const subtype = easy ? 'addSame' : types[Math.floor(rand() * types.length)];
-    p = buildFrac(subtype, easy);
-    key = `fr:${p.o1.n}/${p.o1.d}${p.op}${p.o2.n}/${p.o2.d}`;
+    const subtype = pool[Math.floor(rand() * pool.length)];
+    if (NEW.includes(subtype)) {
+      p = buildFracNew(subtype);
+      key = `fr:${subtype}:${p.cacheKey}`;
+    } else {
+      p = buildFrac(subtype, easy);
+      key = `fr:${p.o1.n}/${p.o1.d}${p.op}${p.o2.n}/${p.o2.d}`;
+      p.options = fracOptions(p);
+    }
     if (easy || t === 19 || !recentHas(key, 6)) break;
   }
   remember(key);
   p.kind = 'frac'; p.tries = 0; p.locked = false; p.finalWin = finalWin;
-  p.options = fracOptions(p);
   return p;
 }
 
@@ -1333,13 +1774,29 @@ function fracRunning(p) {
 }
 
 function fracExplain(p) {
+  if (p.subtype === 'fracOfNum') return `${p.n}/${p.d} מ-${p.baseNum} = ${p.answer}`;
+  if (p.subtype === 'improper') {
+    if (p.dir === 'toMixed') return `${p.numer}/${p.d} = ${p.w} ו-${p.n}/${p.d}`;
+    return `${p.w} ו-${p.n}/${p.d} = ${p.numer}/${p.d}`;
+  }
+  if (p.subtype === 'equiv') return `${p.n}/${p.d} = ${p.ans.n}/${p.ans.d}`;
+  if (p.subtype === 'wholeFrac') return `${p.whole} × ${p.n}/${p.d} = ${p.ans.n}/${p.ans.d}`;
   const r = p.raw, a = p.ans;
   if (fsame(r, a)) return `התשובה: ${a.n}/${a.d}`;
   return `${r.n}/${r.d} = ${a.n}/${a.d} (מצמצמים)`;
 }
 
+function mixedTile(w, n, d) {
+  return `<span class="mixed-num"><span class="mixed-whole">${w}</span>${fracTile({n,d})}</span>`;
+}
+
 function renderFractions() {
   const p = problem;
+  if (p.subtype === 'fracOfNum') return renderFracOfNum(p);
+  if (p.subtype === 'improper')  return renderImproper(p);
+  if (p.subtype === 'equiv')     return renderEquivFrac(p);
+  if (p.subtype === 'wholeFrac') return renderWholeFrac(p);
+  // existing op-based render
   app.innerHTML = '';
   const eq = `${fracTile(p.o1)}<span class="op">${p.op}</span>${fracTile(p.o2)}<span class="op">=</span><span class="qmark">?</span>`;
   const visual = p.op === '×'
@@ -1366,9 +1823,131 @@ function renderFractions() {
   });
 }
 
+function renderFracOfNum(p) {
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text" style="gap:8px">כמה זה ${fracTile({n:p.n,d:p.d})} מ-<b>${p.baseNum}</b>?</p>
+        <div class="running">שבר מתוך מספר</div>
+      </div>
+      <div class="frac-stage">${fracBarSVG(p.n, p.d, COLORS[1])}</div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.options.forEach(o => {
+    const b = el(`<button class="btn btn--big answer num-answer" data-correct="${o.correct}">${o.val}</button>`);
+    b.onclick = () => chooseFracNum(o, b);
+    answers.appendChild(b);
+  });
+}
+
+function renderImproper(p) {
+  app.innerHTML = '';
+  const prompt = p.dir === 'toMixed'
+    ? `<span class="frac-eq">${fracTile({n:p.numer,d:p.d})}</span>`
+    : `<span class="frac-eq">${mixedTile(p.w, p.n, p.d)}</span>`;
+  const running = p.dir === 'toMixed' ? 'הפוך לשבר מעורב' : 'הפוך לשבר בלתי מדויק';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">${prompt}</p>
+        <div class="running">${running}</div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.options.forEach(o => {
+    const display = p.dir === 'toMixed' ? mixedTile(o.w, o.n, o.d) : fracTile(o);
+    const b = el(`<button class="btn answer frac-answer" data-correct="${o.correct}">${display}</button>`);
+    b.onclick = () => chooseFrac(o, b);
+    answers.appendChild(b);
+  });
+}
+
+function renderEquivFrac(p) {
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">צמצמ${fracTile({n:p.n,d:p.d})}</p>
+        <div class="running">חפשי את המחלק המשותף הגדול</div>
+      </div>
+      <div class="frac-stage">${fracBarSVG(p.n, p.d, COLORS[2])}</div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.options.forEach(o => {
+    const b = el(`<button class="btn answer frac-answer" data-correct="${o.correct}">${fracTile(o)}</button>`);
+    b.onclick = () => chooseFrac(o, b);
+    answers.appendChild(b);
+  });
+}
+
+function renderWholeFrac(p) {
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text" style="gap:6px"><b>${p.whole}</b><span class="op">×</span>${fracTile({n:p.n,d:p.d})}<span class="op">=</span><span class="qmark">?</span></p>
+        <div class="running">כפל שבר במספר שלם</div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.options.forEach(o => {
+    const b = el(`<button class="btn answer frac-answer" data-correct="${o.correct}">${fracTile(o)}</button>`);
+    b.onclick = () => chooseFrac(o, b);
+    answers.appendChild(b);
+  });
+}
+
+function chooseFracNum(o, btn) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  if (o.correct) {
+    btn.classList.add('correct');
+    commitCorrect(p, btn);
+    hint.textContent = p.tries === 0 ? 'כל הכבוד! ⭐⭐⭐' : 'יפה! ⭐';
+    setTimeout(() => nextProblem(false), 900);
+  } else {
+    p.tries++;
+    audio.wrong();
+    btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 350);
+    if (p.tries >= 2) {
+      const right = document.querySelector('.num-answer[data-correct="true"]');
+      if (right) right.classList.add('correct');
+      hint.textContent = fracExplain(p);
+      commitWrongReveal(p);
+      showContinue();
+    } else {
+      hint.textContent = 'לא בדיוק — נסי שוב';
+    }
+  }
+}
+
 function revealFrac() {
   const p = problem;
-  if (p.op === '×') return; // the grid already shows the shaded answer
+  if (['fracOfNum','improper','equiv','wholeFrac'].includes(p.subtype)) return;
+  if (p.op === '×') return;
   const st = document.getElementById('fstage');
   if (st) st.innerHTML = fracBarSVG(p.raw.n, p.raw.d, COLORS[3]);
 }
@@ -1684,15 +2263,15 @@ function renderRect() {
   const shapeName = p.isSquare ? 'ריבוע' : 'מלבן';
   const qText = p.subtype === 'area' ? `מה ה<b>שטח</b> של ה${shapeName}?` : `מה ה<b>היקף</b> של ה${shapeName}?`;
   const formula = p.subtype === 'area'
-    ? (p.isSquare ? 'שטח = צלע × צלע' : 'שטח = אורך × רוחב')
-    : (p.isSquare ? 'היקף = 4 × צלע' : 'היקף = 2 × (אורך + רוחב)');
+    ? (p.isSquare ? `שטח = ${p.a} × ${p.a}` : `שטח = ${p.a} × ${p.b}`)
+    : (p.isSquare ? `היקף = 4 × ${p.a}` : `היקף = 2 × (${p.a} + ${p.b})`);
   app.innerHTML = '';
   const view = el(`
     <div class="round">
       ${roundTopbar()}
       <div class="prompt-card">
         <p class="prompt-text" style="font-size:clamp(18px,3.4vh,26px)">${qText}</p>
-        <div class="running">${p.finalWin ? 'עוד אחת — את יכולה! ⭐' : formula}</div>
+        ${p.finalWin ? '<div class="running">עוד אחת — את יכולה! ⭐</div>' : '<button class="btn btn--ghost hint-btn" id="hint-btn">💡 רמז (−⭐)</button>'}
       </div>
       <div class="shape-stage">${rectSVG(p.a, p.b, p.isSquare)}</div>
       <div class="hint" id="hint"></div>
@@ -1700,6 +2279,15 @@ function renderRect() {
     </div>
   `);
   app.appendChild(view);
+  if (!p.finalWin) {
+    view.querySelector('#hint-btn').onclick = () => {
+      view.querySelector('#hint-btn').remove();
+      view.querySelector('#hint').textContent = formula;
+      state.stars = Math.max(0, state.stars - 1);
+      dayBucket().s = Math.max(0, (dayBucket().s || 0) - 1);
+      save(state);
+    };
+  }
   p.options.forEach(opt => {
     const b = el(`<button class="btn answer" data-correct="${opt === p.answer}">${opt}</button>`);
     b.onclick = () => chooseRect(opt, b);
@@ -1731,6 +2319,439 @@ function chooseRect(opt, btn) {
     } else {
       hint.textContent = 'כמעט! עוד ניסיון אחד';
     }
+  }
+}
+
+// ---------- Factor pairs ----------
+const FACTOR_NUMS = [12,15,16,18,20,24,25,28,30,32,36,40,42,45,48,54,56,60,63,70,72,80,90];
+const FACTOR_NUMS_EASY = [12,15,18,20,24,30];
+
+function allFactorPairs(n) {
+  const pairs = [];
+  for (let a = 2; a * a <= n; a++) if (n % a === 0) pairs.push([a, n / a]);
+  return pairs;
+}
+
+function makeFactorProblem(finalWin) {
+  const ri = (lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
+  const easy = finalWin || round.index === 0;
+  const nums = easy ? FACTOR_NUMS_EASY : FACTOR_NUMS;
+  let n, pairs, guard = 0;
+  do {
+    n = nums[Math.floor(rand() * nums.length)];
+    pairs = allFactorPairs(n);
+  } while (pairs.length === 0 || (recentHas('fc:'+n, 5) && guard++ < 15));
+  remember('fc:'+n);
+  const [a, b] = pairs[Math.floor(rand() * pairs.length)];
+  const pairSet = new Set(pairs.map(([x,y]) => `${x}x${y}`));
+  const wrong = [];
+  for (const [x,y] of [[a+1,b],[a,b+1],[a-1>1?a-1:a+2,b],[a,b-1>1?b-1:b+2],[a+2,b],[a,b+2],[a+1,b+1]]) {
+    const key = x<=y?`${x}x${y}`:`${y}x${x}`;
+    if (x>1&&y>1&&!pairSet.has(key)&&!wrong.some(([px,py])=>px===x&&py===y)) wrong.push([x,y]);
+    if (wrong.length>=3) break;
+  }
+  let ex=1; while(wrong.length<3){wrong.push([a+ex+2,b+ex]);ex++;}
+  const options = shuffleInPlace([
+    {a,b,correct:true},
+    ...wrong.slice(0,3).map(([x,y])=>({a:x,b:y,correct:false}))
+  ]);
+  return {kind:'factor', n, a, b, options, tries:0, locked:false, finalWin};
+}
+
+function renderFactors() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">${p.finalWin?'עוד אחת! ⭐':'איזה זוג מספרים מכפלתו'} <b>${p.n}</b>?</p>
+        <div class="running">${p.n} = ? × ?</div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  p.options.forEach(opt => {
+    const b = el(`<button class="btn btn--big answer factor-opt" data-correct="${opt.correct}">${opt.a} × ${opt.b}</button>`);
+    b.onclick = () => chooseFactorPair(opt, b);
+    view.querySelector('#answers').appendChild(b);
+  });
+}
+
+function chooseFactorPair(opt, btn) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  if (opt.correct) {
+    btn.classList.add('correct');
+    commitCorrect(p, btn);
+    hint.textContent = `${p.a} × ${p.b} = ${p.n} ✔`;
+    setTimeout(() => nextProblem(false), 1000);
+  } else {
+    p.tries++;
+    audio.wrong();
+    btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 350);
+    if (p.tries >= 2) {
+      const right = document.querySelector('.factor-opt[data-correct="true"]');
+      if (right) right.classList.add('correct');
+      hint.textContent = `${p.a} × ${p.b} = ${p.n}`;
+      commitWrongReveal(p);
+      showContinue();
+    } else {
+      hint.textContent = `${opt.a} × ${opt.b} ≠ ${p.n} — נסי שוב`;
+    }
+  }
+}
+
+// ---------- Number line ----------
+function numlineSVG(pointVal, rangeEnd, d) {
+  const W = 340, H = 90, pad = 26, lineY = 54, drawW = W - 2*pad;
+  const totalTicks = d * rangeEnd;
+  let ticks = '', labels = '';
+  for (let i = 0; i <= totalTicks; i++) {
+    const x = (pad + (i / totalTicks) * drawW).toFixed(1);
+    const isMajor = i % d === 0;
+    const h = isMajor ? 20 : 10;
+    ticks += `<line x1="${x}" y1="${lineY-h/2}" x2="${x}" y2="${lineY+h/2}" stroke="#2a2150" stroke-width="${isMajor?2.5:1.5}"/>`;
+    if (isMajor) labels += `<text x="${x}" y="${lineY+30}" text-anchor="middle" font-size="15" fill="#2a2150" font-weight="700">${i/d}</text>`;
+  }
+  const dotX = (pad + (pointVal / rangeEnd) * drawW).toFixed(1);
+  return `<svg viewBox="0 0 ${W} ${H}" class="numline-svg" preserveAspectRatio="xMidYMid meet">
+    <line x1="${pad}" y1="${lineY}" x2="${W-pad}" y2="${lineY}" stroke="#2a2150" stroke-width="3.5"/>
+    ${ticks}${labels}
+    <circle cx="${dotX}" cy="${lineY}" r="12" fill="#ff4488" stroke="#2a2150" stroke-width="2.5"/>
+    <circle cx="${dotX}" cy="${lineY}" r="5"  fill="#fff"/>
+  </svg>`;
+}
+
+function makeNumlineProblem(finalWin) {
+  const ri = (lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
+  const easy = finalWin || round.index === 0;
+  const type = easy ? 'simple' : ['simple','simple','mixed','decimal'][Math.floor(rand()*4)];
+
+  if (type === 'simple') {
+    const dOpts = easy ? [2,4] : [2,3,4,5,6,8];
+    const d = dOpts[Math.floor(rand()*dOpts.length)], n = ri(1, d-1);
+    const wrong = [];
+    for (const c of [1,d-1,Math.round(d/2),n-1,n+1,n+2].filter(x=>x>0&&x<d&&x!==n)) {
+      if (!wrong.includes(c)) wrong.push(c); if (wrong.length>=3) break;
+    }
+    let e=1; while(wrong.length<3){const w=(n+e)%d||1;if(w!==n&&!wrong.includes(w))wrong.push(w);e++;}
+    const options = shuffleInPlace([{n,d,correct:true},...wrong.slice(0,3).map(wn=>({n:wn,d,correct:false}))]);
+    return {kind:'numline', type, n, d, rangeEnd:1, options, tries:0, locked:false, finalWin};
+  }
+
+  if (type === 'mixed') {
+    const dOpts = [2,3,4], d = dOpts[Math.floor(rand()*dOpts.length)];
+    const w = ri(1,2), n = ri(1, d-1), rangeEnd = w+1;
+    const wrong = [];
+    for (const c of [{w,n:n===1?2:n-1,d},{w,n:n+1<d?n+1:1,d},{w:w+1,n,d},{w:Math.max(1,w-1),n,d}]) {
+      if (!(c.w===w&&c.n===n&&c.d===d)&&!wrong.some(x=>x.w===c.w&&x.n===c.n&&x.d===c.d)) wrong.push(c);
+      if (wrong.length>=3) break;
+    }
+    while(wrong.length<3) wrong.push({w:w+wrong.length+1,n,d});
+    const options = shuffleInPlace([{w,n,d,correct:true},...wrong.slice(0,3).map(c=>({...c,correct:false}))]);
+    return {kind:'numline', type, w, n, d, rangeEnd, options, tries:0, locked:false, finalWin};
+  }
+
+  // decimal
+  const decOpts = [0.5,1.5,2.5,3.5,0.25,1.25,2.25,3.25,1.75,0.75,4.5,0.5];
+  let val;
+  do { val = decOpts[Math.floor(rand()*decOpts.length)]; } while (recentHas('nl:'+val, 4));
+  remember('nl:'+val);
+  const rangeEnd = Math.ceil(val)+1;
+  const decD = String(val).includes('.25')||String(val).includes('.75') ? 4 : 2;
+  const wrong = decOpts.filter(x=>x!==val).slice(0,3);
+  const options = shuffleInPlace([{val,correct:true},...wrong.map(v=>({val:v,correct:false}))]);
+  return {kind:'numline', type:'decimal', val, rangeEnd, decD, options, tries:0, locked:false, finalWin};
+}
+
+function renderNumline() {
+  const p = problem;
+  app.innerHTML = '';
+  let pointVal, d;
+  if (p.type==='simple')  { pointVal = p.n/p.d;       d = p.d; }
+  else if (p.type==='mixed') { pointVal = p.w + p.n/p.d; d = p.d; }
+  else                    { pointVal = p.val;          d = p.decD; }
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">${p.finalWin?'עוד אחת! ⭐':'מה הערך של הנקודה האדומה?'}</p>
+      </div>
+      <div class="numline-stage">${numlineSVG(pointVal, p.rangeEnd, d)}</div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  p.options.forEach(o => {
+    let display;
+    if (p.type==='simple')       display = fracTile(o);
+    else if (p.type==='mixed')   display = `${o.w?`<b>${o.w}</b>`:''}${fracTile({n:o.n,d:o.d})}`;
+    else                         display = o.val;
+    const b = el(`<button class="btn answer frac-answer" data-correct="${o.correct}">${display}</button>`);
+    b.onclick = () => chooseNumline(o, b);
+    view.querySelector('#answers').appendChild(b);
+  });
+}
+
+function chooseNumline(o, btn) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  if (o.correct) {
+    btn.classList.add('correct');
+    commitCorrect(p, btn);
+    const ans = p.type==='decimal' ? p.val : p.type==='mixed' ? `${p.w} ו-${p.n}/${p.d}` : `${p.n}/${p.d}`;
+    hint.textContent = `✔ ${ans}`;
+    setTimeout(() => nextProblem(false), 1100);
+  } else {
+    p.tries++;
+    audio.wrong();
+    btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 350);
+    if (p.tries >= 2) {
+      const right = document.querySelector('.frac-answer[data-correct="true"]');
+      if (right) right.classList.add('correct');
+      const ans = p.type==='decimal' ? p.val : p.type==='mixed' ? `${p.w} ו-${p.n}/${p.d}` : `${p.n}/${p.d}`;
+      hint.textContent = `הנקודה מסמנת ${ans}`;
+      commitWrongReveal(p);
+      showContinue();
+    } else {
+      hint.textContent = 'לא בדיוק — נסי שוב';
+    }
+  }
+}
+
+// ---------- Order of operations ----------
+function makeOpOrderProblem(finalWin) {
+  const ri = (lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
+  const easy = finalWin || round.index === 0;
+  const type = easy ? 0 : Math.floor(rand() * 4);
+  let expr, answer, distractors;
+
+  if (type === 0) {
+    const a=ri(2,20), b=ri(2,9), c=ri(2,9);
+    answer = a + b*c;
+    distractors = [(a+b)*c, a*b+c, a+b+c];
+    expr = `${a} + ${b} × ${c}`;
+  } else if (type === 1) {
+    const a=ri(2,12), b=ri(2,12), c=ri(2,6);
+    answer = (a+b)*c;
+    distractors = [a+b*c, (a+b)*c+c, a+b+c];
+    expr = `(${a} + ${b}) × ${c}`;
+  } else if (type === 2) {
+    let a,b,c,d;
+    do {a=ri(3,9);b=ri(3,9);c=ri(2,6);d=ri(2,6);} while(a*b<=c*d);
+    answer = a*b - c*d;
+    distractors = [(a*b-c)*d, a*b-c+d, a*(b-c)*d];
+    expr = `${a} × ${b} - ${c} × ${d}`;
+  } else {
+    const a=ri(20,60), b=ri(2,10), c=ri(2,8), d=ri(2,8);
+    answer = a - b + c*d;
+    distractors = [a-(b+c)*d, (a-b+c)*d, a-b+c+d];
+    expr = `${a} - ${b} + ${c} × ${d}`;
+  }
+
+  const valid = distractors.filter(x=>Number.isFinite(x)&&x>0&&x!==answer);
+  while(valid.length<3) valid.push(answer+valid.length+1);
+  const options = shuffleInPlace([{val:answer,correct:true},...valid.slice(0,3).map(v=>({val:v,correct:false}))]);
+  return {kind:'oporder', expr, answer, options, tries:0, locked:false, finalWin};
+}
+
+function renderOpOrder() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">${p.finalWin?'עוד אחת! ⭐':'מה התוצאה?'}</p>
+        <div class="bignum-expr">${p.expr} = ?</div>
+        <div class="running">כפל לפני חיבור — סוגריים ראשון!</div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  p.options.forEach(o => {
+    const b = el(`<button class="btn btn--big answer num-answer" data-correct="${o.correct}">${o.val}</button>`);
+    b.onclick = () => chooseNum(o, b, `${p.expr} = ${p.answer}`);
+    view.querySelector('#answers').appendChild(b);
+  });
+}
+
+// ---------- Large numbers ----------
+function makeBignumProblem(finalWin) {
+  const ri = (lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
+  const easy = finalWin || round.index === 0;
+  const type = easy ? 'add' : ['add','sub','mul','div'][Math.floor(rand()*4)];
+  let expr, answer, distractors;
+
+  if (type === 'add') {
+    const a=ri(10000,50000), b=ri(1000,9999);
+    answer = a+b; distractors = [answer+10, answer-100, answer+1000];
+    expr = `${a.toLocaleString()} + ${b.toLocaleString()}`;
+  } else if (type === 'sub') {
+    const a=ri(20000,80000), b=ri(1000,9999);
+    answer = a-b; distractors = [answer+10, answer-100, answer+100];
+    expr = `${a.toLocaleString()} - ${b.toLocaleString()}`;
+  } else if (type === 'mul') {
+    const a=ri(100,500), b=ri(11,49);
+    answer = a*b; distractors = [a*(b+1), a*(b-1), (a+1)*b];
+    expr = `${a} × ${b}`;
+  } else {
+    const ans=ri(10,99), b=ri(7,12);
+    answer = ans; const a=ans*b;
+    distractors = [ans+1, ans-1, ans+b];
+    expr = `${a} ÷ ${b}`;
+  }
+
+  const valid = distractors.filter(x=>x>0&&x!==answer);
+  while(valid.length<3) valid.push(answer+valid.length*10+1);
+  const options = shuffleInPlace([{val:answer,correct:true},...valid.slice(0,3).map(v=>({val:v,correct:false}))]);
+  return {kind:'bignum', expr, answer, options, tries:0, locked:false, finalWin};
+}
+
+function renderBignum() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text">${p.finalWin?'עוד אחת! ⭐':'מה התוצאה?'}</p>
+        <div class="bignum-expr">${p.expr} = ?</div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  p.options.forEach(o => {
+    const b = el(`<button class="btn btn--big answer num-answer" data-correct="${o.correct}">${o.val.toLocaleString()}</button>`);
+    b.onclick = () => chooseNum(o, b, `${p.expr} = ${p.answer.toLocaleString()}`);
+    view.querySelector('#answers').appendChild(b);
+  });
+}
+
+function chooseNum(o, btn, explainText) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  if (o.correct) {
+    btn.classList.add('correct');
+    commitCorrect(p, btn);
+    hint.textContent = p.tries===0 ? 'כל הכבוד! ⭐⭐⭐' : 'יפה! ⭐';
+    setTimeout(() => nextProblem(false), 900);
+  } else {
+    p.tries++;
+    audio.wrong();
+    btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 350);
+    if (p.tries >= 2) {
+      const right = document.querySelector('.num-answer[data-correct="true"]');
+      if (right) right.classList.add('correct');
+      hint.textContent = explainText;
+      commitWrongReveal(p);
+      showContinue();
+    } else {
+      hint.textContent = 'לא בדיוק — נסי שוב';
+    }
+  }
+}
+
+// ---------- Quadrilateral properties — true/false ----------
+const QUAD_TF = [
+  // TRUE
+  { he: 'מלבן הוא גם מקבילית', correct: true,  explain: 'למלבן שתי זוגות צלעות מקבילות' },
+  { he: 'ריבוע הוא גם מלבן',   correct: true,  explain: 'לריבוע 4 זוויות ישרות, כמו מלבן' },
+  { he: 'ריבוע הוא גם מעוין',  correct: true,  explain: 'לריבוע 4 צלעות שוות, כמו מעוין' },
+  { he: 'מעוין הוא גם מקבילית',correct: true,  explain: 'למעוין שתי זוגות צלעות מקבילות' },
+  { he: 'לריבוע כל הצלעות שוות', correct: true, explain: '4 צלעות שוות — זו הגדרת הריבוע' },
+  { he: 'לריבוע כל הזוויות 90°', correct: true, explain: '4 זוויות ישרות — זו הגדרת הריבוע' },
+  { he: 'למלבן האלכסונים שווים',  correct: true, explain: 'תכונה מיוחדת של המלבן' },
+  { he: 'למעוין האלכסונים ניצבים זה לזה', correct: true, explain: 'האלכסונים של מעוין חוצים זה את זה ב-90°' },
+  { he: 'לטרפז יש זוג אחד של צלעות מקבילות', correct: true, explain: 'זו ההגדרה של טרפז' },
+  { he: 'לדלתון יש שני זוגות צלעות שכנות שוות', correct: true, explain: 'זו ההגדרה של דלתון' },
+  { he: 'לכל מקבילית הצלעות הנגדיות שוות', correct: true, explain: 'צלעות נגדיות במקבילית תמיד שוות' },
+  { he: 'לריבוע האלכסונים ניצבים זה לזה', correct: true, explain: 'ריבוע הוא גם מעוין, ולמעוין אלכסונים ניצבים' },
+  { he: 'לריבוע האלכסונים שווים', correct: true, explain: 'ריבוע הוא גם מלבן, ולמלבן אלכסונים שווים' },
+  { he: 'למקבילית הזוויות הנגדיות שוות', correct: true, explain: 'תכונת בסיס של כל מקבילית' },
+  { he: 'לכל מקבילית האלכסונים חוצים זה את זה', correct: true, explain: 'האלכסונים תמיד חוצים זה את זה במקבילית' },
+  { he: 'לריבוע יש 4 ציר סימטריה', correct: true, explain: 'לריבוע שני אלכסונים + שתי חציות של צלעות — 4 ציר' },
+  { he: 'לדלתון יש לפחות ציר סימטריה אחד', correct: true, explain: 'לדלתון ציר סימטריה אחד לפחות' },
+  // FALSE
+  { he: 'כל מקבילית היא גם מלבן', correct: false, explain: 'מקבילית לא חייבת להיות בעלת זוויות ישרות' },
+  { he: 'כל מקבילית היא גם מעוין', correct: false, explain: 'מקבילית לא חייבת להיות בעלת צלעות שוות' },
+  { he: 'טרפז הוא גם מקבילית',   correct: false, explain: 'לטרפז זוג אחד בלבד — למקבילית שניים' },
+  { he: 'לדלתון יש שתי זוגות צלעות מקבילות', correct: false, explain: 'לדלתון בדרך כלל אין צלעות מקבילות' },
+  { he: 'לכל מקבילית האלכסונים שווים', correct: false, explain: 'רק במלבן (וריבוע) האלכסונים שווים' },
+  { he: 'מלבן הוא גם מעוין',    correct: false, explain: 'מלבן לא חייב להיות בעל ארבע צלעות שוות' },
+  { he: 'לכל מעוין הזוויות 90°', correct: false, explain: 'רק לריבוע יש זוויות 90° — לא לכל מעוין' },
+  { he: 'ריבוע הוא גם טרפז',    correct: false, explain: 'לריבוע שתי זוגות צלעות מקבילות — לכן אינו טרפז' },
+  { he: 'לטרפז תמיד האלכסונים שווים', correct: false, explain: 'רק לטרפז שווה-שוקיים האלכסונים שווים' },
+  { he: 'כל מעוין הוא גם מלבן', correct: false, explain: 'מעוין לא חייב להיות בעל זוויות ישרות' },
+  { he: 'לטרפז אין ציר סימטריה', correct: false, explain: 'לטרפז שווה-שוקיים יש ציר סימטריה' },
+];
+
+function makeQuadProblem(finalWin) {
+  let idx, guard = 0;
+  do { idx = Math.floor(rand() * QUAD_TF.length); }
+  while (recentHas('qd:' + idx, 8) && guard++ < 30);
+  remember('qd:' + idx);
+  const q = QUAD_TF[idx];
+  return { kind: 'quad', idx, statement: q.he, correct: q.correct, explain: q.explain, tries: 0, locked: false, finalWin };
+}
+
+function renderQuad() {
+  const p = problem;
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text" style="font-size:clamp(17px,3.2vh,24px)">נכון או לא נכון?</p>
+        ${p.finalWin ? '<div class="running">עוד אחת — כמעט שם! ⭐</div>' : ''}
+      </div>
+      <div class="quad-statement">${p.statement}</div>
+      <div class="hint" id="hint"></div>
+      <div class="answers answers--two">
+        <button class="btn btn--big btn--teal answer" id="ans-true">✅ נכון</button>
+        <button class="btn btn--big btn--coral answer" id="ans-false">❌ לא נכון</button>
+      </div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#ans-true').onclick  = () => chooseQuad(true,  view.querySelector('#ans-true'));
+  view.querySelector('#ans-false').onclick = () => chooseQuad(false, view.querySelector('#ans-false'));
+}
+
+function chooseQuad(answer, btn) {
+  const p = problem;
+  if (p.locked) return;
+  const hint = document.getElementById('hint');
+  const isCorrect = answer === p.correct;
+  if (isCorrect) {
+    btn.classList.add('correct');
+    commitCorrect(p, btn);
+    hint.textContent = '✔ ' + p.explain;
+    setTimeout(() => nextProblem(false), 1300);
+  } else {
+    p.tries++;
+    p.locked = true;
+    audio.wrong();
+    btn.classList.add('wrong');
+    const rightBtn = answer ? document.getElementById('ans-false') : document.getElementById('ans-true');
+    if (rightBtn) rightBtn.classList.add('correct');
+    hint.textContent = (p.correct ? '✅ נכון!' : '❌ לא נכון!') + ' — ' + p.explain;
+    commitWrongReveal(p);
+    showContinue();
   }
 }
 
@@ -2172,6 +3193,17 @@ function isTriangle(corners, target) {
 }
 
 function endRound() {
+  if (round.reviewMode) {
+    const idx = round.reviewSessionIdx;
+    if (!state.review) state.review = {sessions:[{},{},{},{},{}]};
+    const prev = state.review.sessions[idx] || {};
+    state.review.sessions[idx] = {done: true, stars: Math.max(prev.stars||0, round.starsEarned)};
+    state.lastPlayed = Date.now();
+    save(state);
+    syncNow(true);
+    renderReviewComplete(idx, round.starsEarned);
+    return;
+  }
   satisfyCraving(round.mode);
   const si = stageIndex(state.stars);
   state.lastPlayed = Date.now();
