@@ -79,7 +79,8 @@ html, body {
 .btn--ghost { background: #fff; color: var(--purple); }
 .btn--danger { background: #fff; color: #c0392b; border: 2px solid #e8b4b0; }
 .btn--review { background: linear-gradient(135deg, #ff6b35, #e8003d); color: #fff; }
-.btn-sub { display: block; font-size: 0.52em; opacity: 0.82; font-weight: 400; margin-top: 3px; letter-spacing: 0; }
+.btn-sub { display: block; font-size: 0.55em; opacity: 0.82; font-weight: 400; margin-top: 2px; }
+.btn--has-sub { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .review-done { opacity: 0.75; }
 .review-subtitle { text-align: center; color: var(--gray); font-size: clamp(14px, 2.4vh, 18px); margin: 0 0 16px; line-height: 1.5; }
 .btn--craving { box-shadow: inset 0 0 0 3px #f7c948, inset 0 0 12px rgba(247,201,72,0.4), var(--shadow); animation: craving-pulse 1.4s ease-in-out infinite; }

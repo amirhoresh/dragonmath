@@ -295,10 +295,11 @@ const ROUND = { maxProblems: 12, maxMs: 5 * 60 * 1000, maxWrongStreak: 3 };
 let round = null;
 let drill = null;
 
-function startRound(mode) {
+function startRound(mode, opts = {}) {
   audio.ensure(); // first user gesture — unlock audio
   round = {
     mode: mode || 'count', // 'count' = Build & Count, 'pop' = Bubble Pop
+    ...opts,
     index: 0,
     correctCount: 0,
     starsEarned: 0,
@@ -411,12 +412,12 @@ function renderHome() {
         return `<div class="craving-bubble">💬 אני רוצה לשחק <b>${CRAVING_HE[mode]}</b>! אקבל כוכבים כפולים! ⭐</div>`;
       })()}
       <div class="mode-buttons">
-        <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-mul' ? ' btn--craving' : ''}" id="play-mul">✖️ לוח הכפל<span class="btn-sub">1×1 עד 10×10</span></button>
-        <button class="btn btn--big btn--pink${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-geo' ? ' btn--craving' : ''}" id="play-geo">🔷 גיאומטריה<span class="btn-sub">צורות, משולשים, שטח והיקף, מרובעים</span></button>
-        <button class="btn btn--big btn--coral${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-numbers' ? ' btn--craving' : ''}" id="play-numbers">🔢 מספרים<span class="btn-sub">ראשוני/פריק, גורמים, ציר מספרים</span></button>
-        <button class="btn btn--big${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-calc' ? ' btn--craving' : ''}" id="play-calc">🖩 חשבון<span class="btn-sub">חילוק ארוך ועם שארית, סדר פעולות</span></button>
-        <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-fractions' ? ' btn--craving' : ''}" id="play-fractions">🍕 שברים<span class="btn-sub">שברים רגילים, מעורבים ושקילים</span></button>
-        <button class="btn btn--big btn--review" id="play-review">📝 חזרה למבחן<span class="btn-sub">שאלות מסוג מבחן כיתה ה׳ — 5 פגישות</span></button>
+        <button class="btn btn--big btn--teal btn--has-sub${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-mul' ? ' btn--craving' : ''}" id="play-mul">✖️ לוח הכפל<span class="btn-sub">1×1 עד 10×10</span></button>
+        <button class="btn btn--big btn--pink btn--has-sub${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-geo' ? ' btn--craving' : ''}" id="play-geo">🔷 גיאומטריה<span class="btn-sub">צורות, משולשים, שטח והיקף, מרובעים</span></button>
+        <button class="btn btn--big btn--coral btn--has-sub${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-numbers' ? ' btn--craving' : ''}" id="play-numbers">🔢 מספרים<span class="btn-sub">ראשוני/פריק, גורמים, ציר מספרים</span></button>
+        <button class="btn btn--big btn--has-sub${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-calc' ? ' btn--craving' : ''}" id="play-calc">🖩 חשבון<span class="btn-sub">חילוק ארוך ועם שארית, סדר פעולות</span></button>
+        <button class="btn btn--big btn--teal btn--has-sub${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-fractions' ? ' btn--craving' : ''}" id="play-fractions">🍕 שברים<span class="btn-sub">שברים רגילים, מעורבים ושקילים</span></button>
+        <button class="btn btn--big btn--review btn--has-sub" id="play-review">📝 חזרה למבחן<span class="btn-sub">שאלות מסוג מבחן כיתה ה׳ — 5 פגישות</span></button>
       </div>
       <p class="subtitle">משחקים, לומדים — וספארקי גדל!</p>
     </div>
@@ -599,7 +600,7 @@ function renderCalcMenu() {
       </div>
       ${!done && ['division','oporder','bignum'].includes(cr) ? `<div class="craving-bubble">💬 ספארקי רוצה <b>${CRAVING_HE[cr]}</b>! ⭐x2</div>` : ''}
       <div class="mode-buttons mul-mode-buttons">
-        <button class="btn btn--big btn--coral${!done && cr==='division' ? ' btn--craving' : ''}" id="play-division">➗ חילוק</button>
+        <button class="btn btn--big btn--coral btn--has-sub${!done && cr==='division' ? ' btn--craving' : ''}" id="play-division">➗ חילוק<span class="btn-sub">לחץ לבחירת רמה</span></button>
         <button class="btn btn--big btn--pink${!done && cr==='oporder' ? ' btn--craving' : ''}" id="play-oporder">🔢 סדר פעולות</button>
         <button class="btn btn--big${!done && cr==='bignum' ? ' btn--craving' : ''}" id="play-bignum">🔭 מספרים גדולים</button>
       </div>
@@ -607,9 +608,34 @@ function renderCalcMenu() {
   `);
   app.appendChild(view);
   view.querySelector('#back').onclick = () => renderHome();
-  view.querySelector('#play-division').onclick = () => startRound('division');
+  view.querySelector('#play-division').onclick = () => renderDivisionMenu();
   view.querySelector('#play-oporder').onclick = () => startRound('oporder');
   view.querySelector('#play-bignum').onclick = () => startRound('bignum');
+}
+
+function renderDivisionMenu() {
+  app.innerHTML = '';
+  const view = el(`
+    <div class="home mul-menu">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <h1 class="title">➗ <b>חילוק</b></h1>
+        <span style="width:52px"></span>
+      </div>
+      <div class="mode-buttons mul-mode-buttons">
+        <button class="btn btn--big btn--coral btn--has-sub" id="div-all">🌀 הכל מעורב<span class="btn-sub">כל הרמות, מגוון</span></button>
+        <button class="btn btn--big btn--has-sub" id="div-basic">✖️ חילוק בסיסי<span class="btn-sub">לוח הכפל הפוך, עד 10×10</span></button>
+        <button class="btn btn--big btn--teal btn--has-sub" id="div-long">📏 חילוק ארוך<span class="btn-sub">2-3 ספרות, חילוק עם שלבים</span></button>
+        <button class="btn btn--big btn--pink btn--has-sub" id="div-rem">➗ חילוק עם שארית<span class="btn-sub">מנה ושארית</span></button>
+      </div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderCalcMenu();
+  view.querySelector('#div-all').onclick   = () => startRound('division', {divFilter: 'all'});
+  view.querySelector('#div-basic').onclick = () => startRound('division', {divFilter: 'basic'});
+  view.querySelector('#div-long').onclick  = () => startRound('division', {divFilter: 'long'});
+  view.querySelector('#div-rem').onclick   = () => startRound('division', {divFilter: 'remainder'});
 }
 
 function renderMultiplicationMenu() {
@@ -1226,15 +1252,26 @@ function makeDivisionProblem(finalWin) {
 
   // subtypes: basic(×-table), medium(quotient 11-19), long(quotient 21-49, 3-digit),
   //           xlarge(4-digit ÷ 1-digit), div2(3-digit ÷ 2-digit), remainder(with שארית)
+  const divFilter = round.divFilter || 'all';
   let divType = 'basic';
   if (!easy) {
-    const r = rand();
-    if      (r < 0.30) divType = 'basic';
-    else if (r < 0.48) divType = 'medium';
-    else if (r < 0.63) divType = 'long';
-    else if (r < 0.76) divType = 'xlarge';
-    else if (r < 0.88) divType = 'div2';
-    else               divType = 'remainder';
+    if (divFilter === 'basic') {
+      divType = 'basic';
+    } else if (divFilter === 'long') {
+      const r = rand();
+      divType = r < 0.25 ? 'medium' : r < 0.55 ? 'long' : r < 0.78 ? 'xlarge' : 'div2';
+    } else if (divFilter === 'remainder') {
+      divType = 'remainder';
+    } else {
+      // 'all' — weighted mix
+      const r = rand();
+      if      (r < 0.30) divType = 'basic';
+      else if (r < 0.48) divType = 'medium';
+      else if (r < 0.63) divType = 'long';
+      else if (r < 0.76) divType = 'xlarge';
+      else if (r < 0.88) divType = 'div2';
+      else               divType = 'remainder';
+    }
   }
 
   if (divType === 'medium') {
@@ -3298,7 +3335,7 @@ window.addEventListener('resize', () => {
 const ROUND_BACK = {
   count: renderMultiplicationMenu, pop: renderMultiplicationMenu,
   tables: renderMultiplicationMenu, drill: renderMultiplicationMenu,
-  division: renderCalcMenu, oporder: renderCalcMenu, bignum: renderCalcMenu,
+  division: renderDivisionMenu, oporder: renderCalcMenu, bignum: renderCalcMenu,
   primes: renderNumbersMenu, factors: renderNumbersMenu, numline: renderNumbersMenu,
   shapes: renderGeometryMenu, triangles: renderGeometryMenu,
   rect: renderGeometryMenu, quads: renderGeometryMenu,
