@@ -411,12 +411,12 @@ function renderHome() {
         return `<div class="craving-bubble">💬 אני רוצה לשחק <b>${CRAVING_HE[mode]}</b>! אקבל כוכבים כפולים! ⭐</div>`;
       })()}
       <div class="mode-buttons">
-        <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-mul' ? ' btn--craving' : ''}" id="play-mul">✖️ כפל</button>
-        <button class="btn btn--big btn--pink${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-geo' ? ' btn--craving' : ''}" id="play-geo">🔷 גיאומטריה</button>
-        <button class="btn btn--big btn--coral${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-numbers' ? ' btn--craving' : ''}" id="play-numbers">🔢 מספרים</button>
-        <button class="btn btn--big${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-calc' ? ' btn--craving' : ''}" id="play-calc">🖩 חשבון</button>
-        <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-fractions' ? ' btn--craving' : ''}" id="play-fractions">🍕 שברים</button>
-        <button class="btn btn--big btn--review" id="play-review">📝 חזרה למבחן</button>
+        <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-mul' ? ' btn--craving' : ''}" id="play-mul">✖️ לוח הכפל<span class="btn-sub">1×1 עד 10×10</span></button>
+        <button class="btn btn--big btn--pink${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-geo' ? ' btn--craving' : ''}" id="play-geo">🔷 גיאומטריה<span class="btn-sub">צורות, משולשים, שטח והיקף, מרובעים</span></button>
+        <button class="btn btn--big btn--coral${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-numbers' ? ' btn--craving' : ''}" id="play-numbers">🔢 מספרים<span class="btn-sub">ראשוני/פריק, גורמים, ציר מספרים</span></button>
+        <button class="btn btn--big${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-calc' ? ' btn--craving' : ''}" id="play-calc">🖩 חשבון<span class="btn-sub">חילוק ארוך ועם שארית, סדר פעולות</span></button>
+        <button class="btn btn--big btn--teal${!cravingDone() && CRAVING_HOME_BTN[todayCraving()]==='play-fractions' ? ' btn--craving' : ''}" id="play-fractions">🍕 שברים<span class="btn-sub">שברים רגילים, מעורבים ושקילים</span></button>
+        <button class="btn btn--big btn--review" id="play-review">📝 חזרה למבחן<span class="btn-sub">שאלות מסוג מבחן כיתה ה׳ — 5 פגישות</span></button>
       </div>
       <p class="subtitle">משחקים, לומדים — וספארקי גדל!</p>
     </div>
