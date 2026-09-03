@@ -224,8 +224,8 @@ function stageProgress(stars) {
 }
 
 // Cute SVG dragon. Features unlock gradually across the 8 stages.
-// stage 0-7 → phase-01..06, phase-08, phase-10 (saves most epic for legendary)
-const STAGE_PHASE = ['phase-01','phase-02','phase-03','phase-04','phase-05','phase-06','phase-08','phase-10'];
+// stage 0-9 → phase-01..10
+const STAGE_PHASE = ['phase-01','phase-02','phase-03','phase-04','phase-05','phase-06','phase-07','phase-08','phase-09','phase-10'];
 
 function dragonSVG(stage) {
   const phase = STAGE_PHASE[Math.min(stage, STAGE_PHASE.length - 1)];
@@ -973,10 +973,10 @@ function roundTopbar() {
   const combo = round.combo >= 2 ? `<div class="combo">🔥 ×${round.combo}</div>` : '';
   return `
     <div class="topbar">
-      <button class="mute" id="round-back" aria-label="חזרה">‹</button>
+      <div class="left-count">${left} left</div>
       <div class="progress"><i style="width:${pct}%"></i></div>
       ${combo}
-      <div class="left-count">${left} left</div>
+      <button class="mute" id="round-back" aria-label="חזרה">›</button>
     </div>`;
 }
 
