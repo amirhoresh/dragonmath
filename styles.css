@@ -231,7 +231,7 @@ html, body {
   flex: none;
 }
 /* Hebrew question text reads right-to-left (chrome stays LTR/English) */
-.prompt-card, .running, .hint, .shape-opt span { direction: rtl; }
+.prompt-card, .running, .shape-opt span { direction: rtl; }
 .prompt-text { direction: ltr; unicode-bidi: isolate; }
 .prompt-text { font-size: clamp(22px, 4.4vh, 30px); font-weight: 800; margin: 0 0 4px; }
 .prompt-text .a { color: var(--pink); }
@@ -281,7 +281,7 @@ html, body {
 @keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
 
-.hint { text-align: center; font-size: clamp(16px, 2.6vh, 20px); font-weight: 700; min-height: 24px; color: var(--coral); flex: none; }
+.hint { text-align: center; font-size: clamp(16px, 2.6vh, 20px); font-weight: 700; min-height: 24px; color: var(--coral); flex: none; direction: ltr; unicode-bidi: plaintext; }
 
 /* ---------- mixed number display ---------- */
 .mixed-num { display: inline-flex; align-items: center; gap: 4px; }

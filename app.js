@@ -1211,7 +1211,7 @@ function popBubble(b, val, pool) {
     b.classList.add('correct');
     stopBubbles(pool);
     commitCorrect(p, b);
-    hint.textContent = firstTry ? `בּוּם! 🔥 ${p.a}×${p.b}=${p.answer}` : `יפה! ${p.answer}`;
+    hint.innerHTML = firstTry ? `בּוּם! 🔥 <span dir="ltr">${p.a}×${p.b}=${p.answer}</span>` : `יפה! ${p.answer}`;
     setTimeout(() => nextProblem(false), 800);
   } else {
     p.tries++;
@@ -1224,7 +1224,7 @@ function popBubble(b, val, pool) {
       [...pool.querySelectorAll('.bubble')].forEach((x) => {
         if (parseInt(x.textContent, 10) === p.answer) x.classList.add('correct');
       });
-      hint.textContent = `התשובה היא ${p.answer}.  ${p.a} × ${p.b} = ${p.answer}`;
+      hint.innerHTML = `התשובה היא ${p.answer}. <span dir="ltr">${p.a} × ${p.b} = ${p.answer}</span>`;
       commitWrongReveal(p);
       showContinue();
     } else {
@@ -1508,7 +1508,7 @@ function chooseDivAnswer(opt, btn) {
     if (p.tries >= 2) {
       const stage = document.querySelector('.round .stage');
       if (stage) {
-        hint.textContent = `התשובה היא ${p.answer}. ${p.dividend} ÷ ${p.a} = ${p.answer} — בכל שורה ${p.answer}.`;
+        hint.innerHTML = `התשובה היא ${p.answer}. <span dir="ltr">${p.dividend} ÷ ${p.a} = ${p.answer}</span> — בכל שורה ${p.answer}.`;
         revealFullGrid(stage, p.a, p.b);
       } else {
         hint.innerHTML = divAdvancedHint(p);
@@ -2151,7 +2151,7 @@ function tablesAnswer(opt, btn) {
     audio.wrong();
     [...document.querySelectorAll('.answer')].forEach((x) => { if (+x.textContent === t.answer) x.classList.add('correct'); });
     tablesScore(false);
-    hint.textContent = `${t.a} × ${t.b} = ${t.answer}`;
+    hint.innerHTML = `<span dir="ltr">${t.a} × ${t.b} = ${t.answer}</span>`;
     setTimeout(tablesAdvance, 950);
   }
 }
@@ -2164,7 +2164,7 @@ function tablesTimeout() {
   [...document.querySelectorAll('.answer')].forEach((x) => { if (+x.textContent === t.answer) x.classList.add('correct'); });
   tablesScore(false);
   const hint = document.getElementById('hint');
-  if (hint) hint.textContent = `נגמר הזמן! ${t.a} × ${t.b} = ${t.answer}`;
+  if (hint) hint.innerHTML = `נגמר הזמן! <span dir="ltr">${t.a} × ${t.b} = ${t.answer}</span>`;
   setTimeout(tablesAdvance, 950);
 }
 
@@ -2347,9 +2347,9 @@ function chooseRect(opt, btn) {
     setTimeout(() => btn.classList.remove('wrong'), 350);
     if (p.tries >= 2) {
       const {a, b, isSquare, subtype, answer} = p;
-      hint.textContent = subtype === 'area'
-        ? (isSquare ? `שטח = ${a} × ${a} = ${answer}` : `שטח = ${a} × ${b} = ${answer}`)
-        : (isSquare ? `היקף = 4 × ${a} = ${answer}` : `היקף = 2 × (${a} + ${b}) = ${answer}`);
+      hint.innerHTML = subtype === 'area'
+        ? (isSquare ? `שטח = <span dir="ltr">${a} × ${a} = ${answer}</span>` : `שטח = <span dir="ltr">${a} × ${b} = ${answer}</span>`)
+        : (isSquare ? `היקף = <span dir="ltr">4 × ${a} = ${answer}</span>` : `היקף = <span dir="ltr">2 × (${a} + ${b}) = ${answer}</span>`);
       const right = document.querySelector('[data-correct="true"]');
       if (right) right.classList.add('correct');
       commitWrongReveal(p);
@@ -2404,7 +2404,7 @@ function renderFactors() {
       ${roundTopbar()}
       <div class="prompt-card">
         <p class="prompt-text">${p.finalWin?'עוד אחת! ⭐':'איזה זוג מספרים מכפלתו'} <b>${p.n}</b>?</p>
-        <div class="running">${p.n} = ? × ?</div>
+        <div class="running"><span dir="ltr">${p.n} = ? × ?</span></div>
       </div>
       <div class="hint" id="hint"></div>
       <div class="answers" id="answers"></div>
@@ -2425,7 +2425,7 @@ function chooseFactorPair(opt, btn) {
   if (opt.correct) {
     btn.classList.add('correct');
     commitCorrect(p, btn);
-    hint.textContent = `${p.a} × ${p.b} = ${p.n} ✔`;
+    hint.innerHTML = `<span dir="ltr">${p.a} × ${p.b} = ${p.n} ✔</span>`;
     setTimeout(() => nextProblem(false), 1000);
   } else {
     p.tries++;
@@ -2435,11 +2435,11 @@ function chooseFactorPair(opt, btn) {
     if (p.tries >= 2) {
       const right = document.querySelector('.factor-opt[data-correct="true"]');
       if (right) right.classList.add('correct');
-      hint.textContent = `${p.a} × ${p.b} = ${p.n}`;
+      hint.innerHTML = `<span dir="ltr">${p.a} × ${p.b} = ${p.n}</span>`;
       commitWrongReveal(p);
       showContinue();
     } else {
-      hint.textContent = `${opt.a} × ${opt.b} ≠ ${p.n} — נסי שוב`;
+      hint.innerHTML = `<span dir="ltr">${opt.a} × ${opt.b} ≠ ${p.n}</span> — נסי שוב`;
     }
   }
 }
