@@ -2696,7 +2696,7 @@ function chooseNum(o, btn, explainText) {
     if (p.tries >= 2) {
       const right = document.querySelector('.num-answer[data-correct="true"]');
       if (right) right.classList.add('correct');
-      hint.textContent = explainText;
+      hint.innerHTML = `<span style="direction:ltr;unicode-bidi:isolate">${explainText}</span>`;
       commitWrongReveal(p);
       showContinue();
     } else {
